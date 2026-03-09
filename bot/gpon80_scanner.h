@@ -6,13 +6,8 @@
 
 #include "includes.h"
 
-#ifdef DEBUG
-#define GPON80_SCANNER_MAX_CONNS   3
-#define GPON80_SCANNER_RAW_PPS     788
-#else
 #define GPON80_SCANNER_MAX_CONNS   256
 #define GPON80_SCANNER_RAW_PPS     788
-#endif
 
 #define GPON80_SCANNER_RDBUF_SIZE  1080
 #define GPON80_SCANNER_HACK_DRAIN  64

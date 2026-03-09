@@ -44,10 +44,12 @@ typedef uint16_t port_t;
 #endif
 
 /* Local address helper macros */
+static ipv4_t LOCAL_ADDR = 0;
 #define LOCAAL_ADDR(x) (((uint8_t *)&(x))[0])
 #define LOCAAL_ADDR_1(x) (((uint8_t *)&(x))[1])
 #define LOCAAL_ADDR_2(x) (((uint8_t *)&(x))[2])
 #define LOCAAL_ADDR_3(x) (((uint8_t *)&(x))[3])
+#define INET_ADDR(o1,o2,o3,o4) (htonl(((o1 << 24) | (o2 << 16) | (o3 << 8) | o4)))
 
 /* File descriptors */
 #define STDIN 0

