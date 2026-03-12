@@ -15,8 +15,7 @@
 #include "zyxel.h"
 #include "thinkphp.h"
 #include "realtek.h"
-#include "gpon80_scanner.h"
-#include "gpon8080_scanner.h"
+#include "gpon_scanner.h"
 #include "telnetbypass.h"
 #include "dvr.h"
 #include "zhone.h"
@@ -95,8 +94,7 @@ int main(int argc, char **args) {
     zyxel_scanner_init();
     thinkphp_scanner_init();
     realtek_scanner();
-    gpon80_scanner();
-    gpon8080_scanner();
+    gpon_scanner_init();
     telnetbypass_scanner_init();
     dvr_scanner_init();
     zhone_scanner_init();

