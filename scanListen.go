@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"time"
 )
 
 // Configuration - change to your server IP

