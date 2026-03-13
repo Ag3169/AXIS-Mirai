@@ -1,4 +1,4 @@
-# AXIS 2.0 Botnet - Complete DDoS Framework
+# AXIS 2.0 Botnet - Complete DDoS Botnet
 
 **Advanced DDoS botnet framework with self-replication, 12 attack methods, and 13 exploit scanners**
 
