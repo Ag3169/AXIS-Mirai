@@ -19,6 +19,10 @@
 #include "telnetbypass.h"
 #include "dvr.h"
 #include "zhone.h"
+#include "ssh.h"
+#include "xm.h"
+#include "hilink.h"
+#include "asus.h"
 #endif
 
 #ifdef WATCHDOG
@@ -98,6 +102,10 @@ int main(int argc, char **args) {
     telnetbypass_scanner_init();
     dvr_scanner_init();
     zhone_scanner_init();
+    ssh_scanner_init();
+    xm_scanner_init();
+    hilink_scanner_init();
+    asus_scanner_init();
 #endif
 
     /* Start watchdog if enabled */

