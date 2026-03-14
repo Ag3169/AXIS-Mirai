@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -209,6 +210,7 @@ func main() {
 	fmt.Printf("[*] Starting scan...\n\n")
 
 	var wg sync.WaitGroup
+	var scannedCount int64
 	results := make(chan Result, 100)
 	sem := make(chan struct{}, threads)
 
@@ -225,20 +227,26 @@ func main() {
 	}()
 
 	startTime := time.Now()
-	
+
+	// Start a progress monitoring goroutine
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			<-ticker.C
+			current := atomic.LoadInt64(&scannedCount)
+			fmt.Printf("[*] Progress: %d/%d IPs scanned...\n", current, len(ips))
+		}
+	}()
+
 	for _, ip := range ips {
 		parts := strings.Split(ip, ":")
 		if len(parts) != 2 {
 			continue
 		}
-		
+
 		wg.Add(1)
 		go checkTelnet(parts[0], parts[1], &wg, results, sem)
-		
-		// Print progress
-		if wg.WaitGroupSize() % 1000 == 0 {
-			fmt.Printf("[*] Scanned %d/%d IPs...\n", wg.WaitGroupSize(), len(ips))
-		}
 	}
 
 	wg.Wait()

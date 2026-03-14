@@ -42,6 +42,7 @@ struct connection {
 
 struct connection *connection_open(struct server *, int, struct telnet_info *);
 void connection_close(struct connection *);
+void connection_handler(struct connection *);
 void connection_consume_iacs(struct connection *);
 void connection_consume_login_prompt(struct connection *);
 void connection_consume_password_prompt(struct connection *);

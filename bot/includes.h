@@ -44,7 +44,7 @@ typedef uint16_t port_t;
 #endif
 
 /* Local address helper macros */
-static ipv4_t LOCAL_ADDR = 0;
+#define LOCAL_ADDR (util_local_addr())
 #define LOCAAL_ADDR(x) (((uint8_t *)&(x))[0])
 #define LOCAAL_ADDR_1(x) (((uint8_t *)&(x))[1])
 #define LOCAAL_ADDR_2(x) (((uint8_t *)&(x))[2])

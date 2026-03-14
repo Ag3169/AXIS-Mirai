@@ -11,6 +11,7 @@ import (
 )
 
 // Configuration - change to your server IP
+// CHANGE THIS: 0.0.0.0 is placeholder - set to your scan listener IP
 const scanListenAddr string = "0.0.0.0:9555"
 const outputFile string = "telnet.txt"
 

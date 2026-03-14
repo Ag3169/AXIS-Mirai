@@ -126,7 +126,9 @@ func (this *Database) ContainsWhitelistedTargets(attack *Attack) bool {
 			var dbNetmask string
 			rows.Scan(&dbPrefix, &dbNetmask)
 			dbPrefixInt := binary.BigEndian.Uint32(net.ParseIP(dbPrefix).To4())
-			dbNetmaskInt, _ := time.ParseDuration(dbNetmask)
+			// Parse netmask as integer, not duration
+			dbNetmaskInt := 32
+			fmt.Sscanf(dbNetmask, "%d", &dbNetmaskInt)
 			if prefix == dbPrefixInt && uint8(dbNetmaskInt) == netmask {
 				rows.Close()
 				return true

@@ -188,19 +188,19 @@ int util_fdgets(char *buffer, int buffer_size, int fd) {
 int util_socket_and_bind(char *bind_addr) {
     struct sockaddr_in addr;
     int fd, bind_addr_len;
-    
-    fd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
+
+    fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
     if (fd == -1) return -1;
-    
+
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = inet_addr(bind_addr);
     addr.sin_port = 0;
     bind_addr_len = sizeof(addr);
-    
+
     if (bind(fd, (struct sockaddr *)&addr, bind_addr_len) == -1) {
         close(fd);
         return -1;
     }
-    
+
     return fd;
 }

