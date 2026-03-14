@@ -1,0 +1,13 @@
+# Zhone ONT/OLT Router Targets
+# Format: One IP or IP:PORT per line
+# Example:
+# 192.168.1.1
+# 10.0.0.1:80
+# 
+# Add your target IPs here or use CIDR ranges from leak databases
+# Targets should be Zhone ONT/OLT fiber routers
+# 
+# Note: These devices typically run on port 80 (HTTP)
+# Vulnerable endpoint: /zhnping.cmd with session key authentication
+# 
+# Common in FTTH deployments by ISPs worldwide

