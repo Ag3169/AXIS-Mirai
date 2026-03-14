@@ -103,6 +103,15 @@ char *util_itoa(int num, char *str) {
     return str;
 }
 
+/* Formatted output using vsprintf - added for scanner functions */
+int util_sprintf(char *str, const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    int result = vsprintf(str, format, args);
+    va_end(args);
+    return result;
+}
+
 static int util_memcmp(char *buf1, char *buf2, int len) {
     for (int i = 0; i < len; i++) {
         if (buf1[i] != buf2[i]) return buf1[i] - buf2[i];

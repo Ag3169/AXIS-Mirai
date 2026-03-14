@@ -25,6 +25,9 @@ void util_zero(void *, int);
 int util_atoi(char *);
 char *util_itoa(int, char *);
 
+/* Formatted output */
+int util_sprintf(char *, const char *, ...);
+
 /* Search functions */
 int util_memsearch(char *, int, char *, int);
 char *util_stristr(char *, int, char *);

