@@ -61,8 +61,8 @@ This is **SOURCE CODE ONLY** - not a finished product. You must:
 5. **ICMP Ping Flood** - ICMP Echo Request flood
 6. **GRE IP** - GRE encapsulated IP flood
 7. **GRE ETH** - GRE encapsulated Ethernet flood
-8. **AXIS-L4** - Combined TCP+OVH-TCP+ICMP+GRE attack
-9. **ULTIMATE L4** - All-in-one: TCP+UDP+ICMP+GRE-IP+GRE-ETH with IP spoofing, random TTL/TOS
+8. **AXIS-TCP** - All-in-one TCP + AMP methods + ICMP flood
+9. **AXIS-UDP** - All-in-one UDP + AMP methods + ICMP flood
 
 #### Amplification Attacks (5 methods)
 10. **DNS Amplification** - 50x-100x amplification factor
